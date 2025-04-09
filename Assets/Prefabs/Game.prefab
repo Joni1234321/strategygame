@@ -44,9 +44,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ceda4c8ebc5b30e418a682839b30bf3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Units: []
-  Enemies: []
-  Gameobjects: []
+  Units:
+  - UnitName: 0
+    HealthLeft: 10
+    UnitAction: 0
+    ShootingCooldown:
+      Ticks: 0
+  - UnitName: 1
+    HealthLeft: 1
+    UnitAction: 0
+    ShootingCooldown:
+      Ticks: 0
+  Enemies:
+  - UnitName: 0
+    HealthLeft: 10
+    UnitAction: 0
+    ShootingCooldown:
+      Ticks: 0
+  UnitScripts:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   TeamColor: {r: 0, g: 0, b: 1, a: 1}
   EnemyColor: {r: 1, g: 0, b: 0, a: 1}
   UnitPrefab: {fileID: 3409465735241253763, guid: 3d2c77c4e289bfe4e91842599c7fc72c, type: 3}

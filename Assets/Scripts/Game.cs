@@ -13,7 +13,7 @@ public sealed class Game : MonoBehaviour
     // Game State
     public List<GameUnit> Units = new();
     public List<GameUnit> Enemies = new();
-    [FormerlySerializedAs("Gameobjects")] public List<GameObject> GameObjects = new();
+    public List<UnitScript> UnitScripts = new();
     public PositionUnit Spawn1 = new() { Units = new int2(1, -1) };
 
     // Game Defines
@@ -70,8 +70,8 @@ public sealed class Game : MonoBehaviour
         Units.Clear();
         Enemies.Clear();
 
-        foreach (GameObject go in GameObjects) DestroyImmediate(go);
-        GameObjects.Clear();
+        while (transform.childCount > 0) transform.GetChild(0).gameObject.DestroyEither();
+        UnitScripts.Clear();
         
         CreateUnit(UnitName.UnitInfantry, Spawn1, Units, TeamColor);
         CreateUnit(UnitName.UnitMortar, new PositionUnit { Units = new int2(2, 1) }, Units, TeamColor);
@@ -84,7 +84,7 @@ public sealed class Game : MonoBehaviour
         for (int i = 0; i < Units.Count; i++)
         {
             GameUnit unit = Units[i];
-            GameObject obj = GameObjects[i];
+            UnitScript obj = UnitScripts[i];
 
             UpdateUnit(unit);
 
@@ -96,15 +96,21 @@ public sealed class Game : MonoBehaviour
         GameUnit.Definition definition = Defines.Find(x => x.UnitName == unitName);
         team.Add(new GameUnit
         {
+            UnitName = unitName,
             ShootingCooldown = { Ticks = 0U },
             HealthLeft = definition.UnitStats.Health,
-            Position = position
+            TargetPosition = null,
+            TargetUnit = Entity.Null,
+            UnitAction = UnitAction.UnitAlert,
+            Position = position,
         });
+        
         GameObject go = Instantiate(UnitPrefab, position.WorldPosition, Quaternion.identity, transform);
-        SpriteRenderer sr = go.GetComponent<SpriteRenderer>();
-        sr.sprite = definition.Image;
-        sr.color = color;
-        GameObjects.Add(go);
+        UnitScript unitScript = go.GetComponent<UnitScript>();
+        unitScript.SetUnit(definition.Image, color);
+        unitScript.SetHealth(definition.UnitStats.Health);
+        unitScript.SetStatusColor(UnitAction.UnitAlert.ToColor());
+        UnitScripts.Add(unitScript);
     }
     private void UpdateUnit(GameUnit unit)
     {

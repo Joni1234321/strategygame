@@ -1,3 +1,4 @@
+using UnityEngine;
 using Unity.Mathematics;
 using static Const;
 
@@ -62,5 +63,8 @@ public struct PositionUnit
 {
     public int2 Units;
 
-    public UnityEngine.Vector3 WorldPosition => new(Units.x, Units.y, WORLD_COORD_Z);
+    public PositionUnit(int x, int y) => Units = new int2(x, y);
+    public PositionUnit(Vector2 worldPosition) => Units = new int2((int)worldPosition.x,  (int)worldPosition.y);
+
+    public Vector3 WorldPosition => new(Units.x, Units.y, WORLD_COORD_Z);
 }

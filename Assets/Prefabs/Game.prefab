@@ -44,18 +44,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ceda4c8ebc5b30e418a682839b30bf3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  units: []
-  unitPrefab: {fileID: 3409465735241253763, guid: 3d2c77c4e289bfe4e91842599c7fc72c, type: 3}
-  gameobjects: []
-  defines:
+  Units: []
+  Enemies: []
+  Gameobjects: []
+  TeamColor: {r: 0, g: 0, b: 1, a: 1}
+  EnemyColor: {r: 1, g: 0, b: 0, a: 1}
+  UnitPrefab: {fileID: 3409465735241253763, guid: 3d2c77c4e289bfe4e91842599c7fc72c, type: 3}
+  Defines:
   - UnitName: 0
-    Image: {fileID: 21300000, guid: 6b1f27551036f1d4fb427169b2939c2d, type: 3}
+    Image: {fileID: 21300000, guid: d464f072bba52804e9f97784bd145a6d, type: 3}
     UnitStats:
       Health: 10
       TicksBetweenShots:
         Ticks: 16
-      RangeUnits:
-        Units: 45
+      RangeUnitsSquared:
+        DistanceSquared: 2025
       ProjectileType: 0
   - UnitName: 1
     Image: {fileID: 21300000, guid: 4cd53012d28f0bf44b4c183ce7cc9eae, type: 3}
@@ -63,6 +66,6 @@ MonoBehaviour:
       Health: 1
       TicksBetweenShots:
         Ticks: 480
-      RangeUnits:
-        Units: 70
+      RangeUnitsSquared:
+        DistanceSquared: 4900
       ProjectileType: 1

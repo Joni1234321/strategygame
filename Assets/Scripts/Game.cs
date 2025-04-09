@@ -4,15 +4,23 @@ using JetBrains.Annotations;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Serialization;
 using static Util;
 
+[ExecuteAlways]
 public sealed class Game : MonoBehaviour
 {
-    public List<GameUnit> units = new();
-    public List<GameUnit> enemies = new();
-    public GameObject unitPrefab;
-    public List<GameObject> gameobjects = new();
-    public List<GameUnit.Definition> defines = new(Enum.GetNames(typeof(UnitName)).Length)
+    // Game State
+    public List<GameUnit> Units = new();
+    public List<GameUnit> Enemies = new();
+    [FormerlySerializedAs("Gameobjects")] public List<GameObject> GameObjects = new();
+    public PositionUnit Spawn1 = new() { Units = new int2(1, -1) };
+
+    // Game Defines
+    public Color TeamColor = Color.blue;
+    public Color EnemyColor = Color.red;
+    public GameObject UnitPrefab;
+    public List<GameUnit.Definition> Defines = new(Enum.GetNames(typeof(UnitName)).Length)
     {
         new GameUnit.Definition
         {
@@ -40,55 +48,73 @@ public sealed class Game : MonoBehaviour
         },
     };
 
-    public PositionUnit Spawn1 = new() { Units = new int2(1, -1) };
-    private void Awake()
+    private void OnEnable()
     {
-        CreateUnit(UnitName.UnitInfantry, Spawn1, units);
-        CreateUnit(UnitName.UnitMortar, new PositionUnit { Units = new int2(2, 1) }, units);
-
-        CreateUnit(UnitName.UnitInfantry, new PositionUnit { Units = new int2(4, 1) }, enemies);
+        Spawn();
     }
 
     private void Update()
     {
+        
         Tick();
     }
 
-    void Tick()
+    private void UserInput()
     {
-        for (int i = 0; i < units.Count; i++)
+        
+    }
+
+    [ContextMenu("Spawn map")]
+    private void Spawn()
+    {
+        Units.Clear();
+        Enemies.Clear();
+
+        foreach (GameObject go in GameObjects) DestroyImmediate(go);
+        GameObjects.Clear();
+        
+        CreateUnit(UnitName.UnitInfantry, Spawn1, Units, TeamColor);
+        CreateUnit(UnitName.UnitMortar, new PositionUnit { Units = new int2(2, 1) }, Units, TeamColor);
+
+        CreateUnit(UnitName.UnitInfantry, new PositionUnit { Units = new int2(4, 1) }, Enemies, EnemyColor);
+    }
+
+    private void Tick()
+    {
+        for (int i = 0; i < Units.Count; i++)
         {
-            GameUnit unit = units[i];
-            GameObject obj = gameobjects[i];
+            GameUnit unit = Units[i];
+            GameObject obj = GameObjects[i];
 
             UpdateUnit(unit);
 
             obj.transform.position = unit.Position.WorldPosition;
         }
     }
-    public void CreateUnit(UnitName unitName, PositionUnit position, [NotNull] List<GameUnit> team)
+    private void CreateUnit(UnitName unitName, PositionUnit position, [NotNull] List<GameUnit> team, Color color)
     {
-        GameUnit.Definition definition = defines.Find(x => x.UnitName == unitName);
+        GameUnit.Definition definition = Defines.Find(x => x.UnitName == unitName);
         team.Add(new GameUnit
         {
             ShootingCooldown = { Ticks = 0U },
             HealthLeft = definition.UnitStats.Health,
             Position = position
         });
-        var go = Instantiate(unitPrefab, position.WorldPosition, Quaternion.identity, transform);
-        go.GetComponent<SpriteRenderer>().sprite = definition.Image;
-        gameobjects.Add(go);
+        GameObject go = Instantiate(UnitPrefab, position.WorldPosition, Quaternion.identity, transform);
+        SpriteRenderer sr = go.GetComponent<SpriteRenderer>();
+        sr.sprite = definition.Image;
+        sr.color = color;
+        GameObjects.Add(go);
     }
-
-    void UpdateUnit(GameUnit unit)
+    private void UpdateUnit(GameUnit unit)
     {
-        GameUnit.Stat stat = defines[(int)unit.UnitName].UnitStats;
+        GameUnit.Stat stat = Defines[(int)unit.UnitName].UnitStats;
 
         // AI
         switch (unit.UnitAction)
         {
             case UnitAction.UnitAlert:
-                Entity enemy = GetNearbyUnit(unit.Position, stat.RangeUnitsSquared, enemies);
+                Entity enemy = GetNearbyUnit(unit.Position, stat.RangeUnitsSquared, Enemies);
                 if (enemy.HasValue())
                 {
                     unit.TargetUnit = enemy;
@@ -105,7 +131,7 @@ public sealed class Game : MonoBehaviour
 
                 break;
             case UnitAction.UnitFighting:
-                if (!unit.TargetUnit.HasValue() || !TargetInRange(unit.Position, enemies[unit.TargetUnit.Index].Position, stat.RangeUnitsSquared))
+                if (!unit.TargetUnit.HasValue() || !TargetInRange(unit.Position, Enemies[unit.TargetUnit.Index].Position, stat.RangeUnitsSquared))
                 {
                     unit.TargetUnit.Reset();
                     unit.UnitAction = UnitAction.UnitAlert;
@@ -118,7 +144,7 @@ public sealed class Game : MonoBehaviour
                 }
                 else
                 {
-                    Shoot(unit, enemies, unit.TargetUnit);
+                    Shoot(unit, Enemies, unit.TargetUnit);
                 }
 
                 break;

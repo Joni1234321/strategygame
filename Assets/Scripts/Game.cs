@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
-using JetBrains.Annotations;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Serialization;
 using static Util;
 
-[ExecuteAlways]
-public sealed class Game : MonoBehaviour
+[ExecuteAlways] public sealed class Game : MonoBehaviour
 {
     // Game State
     public List<GameUnit> Units = new();
@@ -17,8 +14,6 @@ public sealed class Game : MonoBehaviour
     public PositionUnit Spawn1 = new() { Units = new int2(1, -1) };
 
     // Game Defines
-    public Color TeamColor = Color.blue;
-    public Color EnemyColor = Color.red;
     public GameObject UnitPrefab;
     public List<GameUnit.Definition> Defines = new(Enum.GetNames(typeof(UnitName)).Length)
     {
@@ -47,38 +42,36 @@ public sealed class Game : MonoBehaviour
             }
         },
     };
-
+    
+    // Base
     private void OnEnable()
     {
         Spawn();
     }
-
     private void Update()
     {
-        
         Tick();
     }
 
+    // Methods
     private void UserInput()
     {
-        
     }
-
     [ContextMenu("Spawn map")]
     private void Spawn()
     {
+        Debug.Log($"[GAME] {nameof(Spawn)}");
         Units.Clear();
         Enemies.Clear();
 
         while (transform.childCount > 0) transform.GetChild(0).gameObject.DestroyEither();
         UnitScripts.Clear();
-        
-        CreateUnit(UnitName.UnitInfantry, Spawn1, Units, TeamColor);
-        CreateUnit(UnitName.UnitMortar, new PositionUnit { Units = new int2(2, 1) }, Units, TeamColor);
 
-        CreateUnit(UnitName.UnitInfantry, new PositionUnit { Units = new int2(4, 1) }, Enemies, EnemyColor);
+        CreateUnit(UnitName.UnitInfantry, Spawn1, Team.BlueTeam);
+        CreateUnit(UnitName.UnitMortar, new PositionUnit { Units = new int2(2, 1) }, Team.BlueTeam);
+
+        CreateUnit(UnitName.UnitInfantry, new PositionUnit { Units = new int2(4, 1) }, Team.RedTeam);
     }
-
     private void Tick()
     {
         for (int i = 0; i < Units.Count; i++)
@@ -91,27 +84,6 @@ public sealed class Game : MonoBehaviour
             obj.transform.position = unit.Position.WorldPosition;
         }
     }
-    private void CreateUnit(UnitName unitName, PositionUnit position, [NotNull] List<GameUnit> team, Color color)
-    {
-        GameUnit.Definition definition = Defines.Find(x => x.UnitName == unitName);
-        team.Add(new GameUnit
-        {
-            UnitName = unitName,
-            ShootingCooldown = { Ticks = 0U },
-            HealthLeft = definition.UnitStats.Health,
-            TargetPosition = null,
-            TargetUnit = Entity.Null,
-            UnitAction = UnitAction.UnitAlert,
-            Position = position,
-        });
-        
-        GameObject go = Instantiate(UnitPrefab, position.WorldPosition, Quaternion.identity, transform);
-        UnitScript unitScript = go.GetComponent<UnitScript>();
-        unitScript.SetUnit(definition.Image, color);
-        unitScript.SetHealth(definition.UnitStats.Health);
-        unitScript.SetStatusColor(UnitAction.UnitAlert.ToColor());
-        UnitScripts.Add(unitScript);
-    }
     private void UpdateUnit(GameUnit unit)
     {
         GameUnit.Stat stat = Defines[(int)unit.UnitName].UnitStats;
@@ -120,7 +92,7 @@ public sealed class Game : MonoBehaviour
         switch (unit.UnitAction)
         {
             case UnitAction.UnitAlert:
-                Entity enemy = GetNearbyUnit(unit.Position, stat.RangeUnitsSquared, Enemies);
+                Entity enemy = GetNearbyUnit(Team.RedTeam, unit.Position, stat.RangeUnitsSquared);
                 if (enemy.HasValue())
                 {
                     unit.TargetUnit = enemy;
@@ -150,7 +122,7 @@ public sealed class Game : MonoBehaviour
                 }
                 else
                 {
-                    Shoot(unit, Enemies, unit.TargetUnit);
+                    Shoot(unit, unit.TargetUnit);
                 }
 
                 break;
@@ -162,28 +134,73 @@ public sealed class Game : MonoBehaviour
 
         return;
 
-        static bool ReachedTarget(PositionUnit position, PositionUnit target) => math.all(position.Units == target.Units);
-        static bool TargetInRange(PositionUnit position, PositionUnit target, RangeUnitsSquared range) => math.lengthsq(target.Units - position.Units) < range.DistanceSquared;
-        static Entity GetNearbyUnit(PositionUnit position, RangeUnitsSquared range, List<GameUnit> enemies)
+        Entity GetNearbyUnit(Team team, PositionUnit from, RangeUnitsSquared within)
         {
-            int index = enemies.FindIndex(enemy => math.lengthsq(enemy.Position.Units - position.Units) < range.DistanceSquared);
-            return index == -1 ? Entity.Null : new Entity { Index = index };
+            int index = GetTeam(team).FindIndex(unit => math.lengthsq(unit.Position.Units - from.Units) < within.DistanceSquared);
+            return index == -1 ? Entity.Null : GetEntity(team, index);
         }
-        static void Shoot(GameUnit unit, List<GameUnit> enemies, Entity enemyEntity)
+        void Shoot(GameUnit unit, Entity enemyEntity)
         {
             const uint CHANCE_TO_HIT = 10U;
             const uint CHANCE_TO_DODGE = 10U;
             if (RandomDice(CHANCE_TO_HIT) == 0U)
             {
-                GameUnit enemy = enemies[enemyEntity.Index];
+                Team team = (Team)enemyEntity.Version;
+                List<GameUnit> enemyTeam = GetTeam(team);
+                GameUnit enemy = enemyTeam[enemyEntity.Index];
                 if (RandomDice(CHANCE_TO_DODGE) < enemy.HealthLeft)
                 {
                     enemy.HealthLeft--;
-                    enemies[enemyEntity.Index] = enemy;
+                    enemyTeam[enemyEntity.Index] = enemy;
                 }
             }
         }
+
+        
+        static bool ReachedTarget(PositionUnit position, PositionUnit target) => math.all(position.Units == target.Units);
+        static bool TargetInRange(PositionUnit position, PositionUnit target, RangeUnitsSquared range) => math.lengthsq(target.Units - position.Units) < range.DistanceSquared;
     }
+    
+    // Support
+    private void CreateUnit(UnitName unitName, PositionUnit position, Team team)
+    {
+        Debug.Log($"[GAME] {nameof(CreateUnit)} {unitName} {team}");
+        GameUnit.Definition definition = Defines.Find(x => x.UnitName == unitName);
+        List<GameUnit> units = GetTeam(team);
+        units.Add(new GameUnit
+        {
+            UnitName = unitName,
+            ShootingCooldown = { Ticks = 0U },
+            HealthLeft = definition.UnitStats.Health,
+            TargetPosition = null,
+            TargetUnit = Entity.Null,
+            UnitAction = UnitAction.UnitAlert,
+            Position = position,
+        });
+
+        GameObject go = Instantiate(UnitPrefab, position.WorldPosition, Quaternion.identity, transform);
+        UnitScript unitScript = go.GetComponent<UnitScript>();
+        unitScript.SetUnit(definition.Image, team.ToColor());
+        unitScript.SetHealth(definition.UnitStats.Health);
+        unitScript.SetStatusColor(UnitAction.UnitAlert.ToColor());
+        Debug.Log(GetEntity(team, units.Count - 1).Index);
+        Debug.Log(GetEntity(team, units.Count - 1));
+        unitScript.Entity = GetEntity(team, units.Count - 1);
+        UnitScripts.Add(unitScript);
+    }
+    private List<GameUnit> GetTeam(Team team) => team switch
+    {
+        Team.BlueTeam => Units,
+        Team.RedTeam => Enemies,
+        _ => throw new ArgumentOutOfRangeException(nameof(team), team, null)
+    };
+    private static Entity GetEntity(Team team, int index) => new() { Index = index, Version = (int)team };
+}
+
+public enum Team
+{
+    BlueTeam,
+    RedTeam,
 }
 
 public enum ProjectileType

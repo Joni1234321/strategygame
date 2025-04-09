@@ -1,3 +1,4 @@
+using Unity.Entities;
 using UnityEngine;
 
 public class UnitScript : MonoBehaviour
@@ -6,6 +7,8 @@ public class UnitScript : MonoBehaviour
     [SerializeField] private SpriteRenderer status;
     [SerializeField] private Transform healthGroup;
 
+    public Entity Entity { get; set; }
+    
     public void SetStatusColor(Color color) => status.color = color;
     public void SetUnit(Sprite unitIcon, Color teamColor)
     {
@@ -18,5 +21,10 @@ public class UnitScript : MonoBehaviour
         {
             healthGroup.transform.GetChild(i).gameObject.SetActive(health > i);
         }        
+    }
+    
+    private void OnMouseDown()
+    {
+        Debug.Log(Entity);
     }
 }

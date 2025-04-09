@@ -24,4 +24,11 @@ public static class Extensions
         UnitAction.UnitMovingAndFighting => GetColor(1.0F),
         _ => throw new ArgumentOutOfRangeException(nameof(unitAction), unitAction, null)
     };
+
+    public static Color ToColor(this Team team) => team switch
+    {
+        Team.BlueTeam => Color.blue,
+        Team.RedTeam => Color.red,
+        _ => throw new ArgumentOutOfRangeException(nameof(team), team, null)
+    };
 }

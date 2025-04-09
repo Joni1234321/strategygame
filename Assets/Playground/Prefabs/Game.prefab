@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8989783900177418870}
-  - component: {fileID: 4709587218352029356}
+  - component: {fileID: 1239485057698641731}
   m_Layer: 0
   m_Name: Game
   m_TagString: Untagged
@@ -32,7 +32,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4709587218352029356
+--- !u!114 &1239485057698641731
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -44,3 +44,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ceda4c8ebc5b30e418a682839b30bf3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  units: []
+  unitPrefab: {fileID: 3409465735241253763, guid: 3d2c77c4e289bfe4e91842599c7fc72c, type: 3}
+  gameobjects: []
+  defines:
+  - UnitName: 0
+    Image: {fileID: 21300000, guid: 6b1f27551036f1d4fb427169b2939c2d, type: 3}
+    UnitStats:
+      Health: 10
+      TicksBetweenShots:
+        Ticks: 16
+      RangeUnits:
+        Units: 45
+      ProjectileType: 0
+  - UnitName: 1
+    Image: {fileID: 21300000, guid: 4cd53012d28f0bf44b4c183ce7cc9eae, type: 3}
+    UnitStats:
+      Health: 1
+      TicksBetweenShots:
+        Ticks: 480
+      RangeUnits:
+        Units: 70
+      ProjectileType: 1

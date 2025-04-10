@@ -735,7 +735,7 @@ GameObject:
   - component: {fileID: 3041214046933402739}
   - component: {fileID: 5392720397773138057}
   m_Layer: 0
-  m_Name: Game
+  m_Name: game
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -794,6 +794,7 @@ MonoBehaviour:
   EnemiesScripts:
   - {fileID: 6770076592002821637}
   UnitPrefab: {fileID: 3409465735241253763, guid: 3d2c77c4e289bfe4e91842599c7fc72c, type: 3}
+  BulletPrefab: {fileID: 216342370040995125, guid: 0c7d857ff851d794da6eaf682bbb1802, type: 3}
   Defines:
   - MilitaryNodeType: 0
     Image: {fileID: 21300000, guid: d464f072bba52804e9f97784bd145a6d, type: 3}

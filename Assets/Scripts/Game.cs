@@ -4,24 +4,22 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.Serialization;
 using static Util;
 
-[RequireComponent(typeof(PlayerController))]
-[RequireComponent(typeof(TickController))]
-[ExecuteAlways] public sealed class Game : MonoBehaviour
+[RequireComponent(typeof(PlayerController))] [RequireComponent(typeof(TickController))] [ExecuteAlways] public sealed class Game : MonoBehaviour
 {
     // Controllers
     private PlayerController playerController;
     private TickController tickController;
-    
+
     // Game State
     public List<MilitaryNode> Friendlies = new(), Enemies = new();
     public List<MilitaryScript> FriendliesScripts = new(), EnemiesScripts = new();
-    public PositionUnit Spawn1 = new() { Units = new int2(1, -1) };
+    public List<Bullet> Bullets = new();
 
     // Game Defines
-    public GameObject UnitPrefab;
+    public Transform BulletList;
+    public GameObject UnitPrefab, BulletPrefab;
     public List<MilitaryNode.Definition> Defines = new(Enum.GetNames(typeof(MilitaryNodeType)).Length)
     {
         new MilitaryNode.Definition
@@ -49,7 +47,7 @@ using static Util;
             }
         },
     };
-    
+
     // Base
     private void OnEnable()
     {
@@ -70,27 +68,29 @@ using static Util;
         {
             Vector2 worldPos = playerController.MainCamera.ScreenToWorldPoint(Input.mousePosition);
             MilitaryNode militaryNode = GetMilitaryNode(playerController.SelectedUnit);
-            militaryNode.TargetPosition = new(worldPos); 
+            militaryNode.TargetPosition = new(worldPos);
             SetMilitaryNode(playerController.SelectedUnit, militaryNode);
             Debug.Log($"[USER] Moving to {worldPos}");
         }
-
     }
-    [ContextMenu("Spawn map")]
-    private void Spawn()
+    [ContextMenu("Spawn map")] private void Spawn()
     {
         Debug.Log($"[GAME] {nameof(Spawn)}");
         Friendlies.Clear();
         Enemies.Clear();
 
-        while (transform.childCount > 0) transform.GetChild(0).gameObject.DestroyEither();
+        while (transform.childCount > 0) transform.GetChild(0).gameObject.UniversalDestroy();
         FriendliesScripts.Clear();
         EnemiesScripts.Clear();
 
-        CreateUnit(MilitaryNodeType.UnitInfantry, Spawn1, Team.BlueTeam);
-        CreateUnit(MilitaryNodeType.UnitMortar, new PositionUnit { Units = new int2(2, 1) }, Team.BlueTeam);
+        BulletList = new GameObject("bullet list").transform;
+        BulletList.SetParent(transform);
+        Bullets.Clear();
 
-        CreateUnit(MilitaryNodeType.UnitInfantry, new PositionUnit { Units = new int2(4, 1) }, Team.RedTeam);
+        CreateUnit(MilitaryNodeType.UnitInfantry, new PositionUnit(new Vector2(0, 0)), Team.BlueTeam);
+        CreateUnit(MilitaryNodeType.UnitMortar, new PositionUnit(new Vector2(1, 1)), Team.BlueTeam);
+
+        CreateUnit(MilitaryNodeType.UnitInfantry, new PositionUnit(new Vector2(2, 1)), Team.RedTeam);
     }
     private void Tick()
     {
@@ -104,6 +104,22 @@ using static Util;
 
             militaryScript.SetCooldown((float)newMilitaryNode.ShootingCooldownTicks.Ticks / stat.TicksBetweenShots.Ticks);
             militaryScript.transform.position = newMilitaryNode.Position.WorldPosition;
+        }
+
+        for (int i = Bullets.Count - 1; i >= 0; i--)
+        {
+            if (Bullets[i].Progress >= 1.0F)
+            {
+                Bullets[i].Transform.gameObject.UniversalDestroy();
+                Bullets.RemoveAt(i);
+            }
+        }
+
+        for (int i = 0; i < Bullets.Count; i++)
+        {
+            Bullet bullet = Bullets[i];
+            bullet.Tick();
+            Bullets[i] = bullet;
         }
     }
     private MilitaryNode UpdateUnit(Entity militaryNodeEntity)
@@ -157,7 +173,6 @@ using static Util;
                 throw new ArgumentOutOfRangeException(nameof(militaryNode), militaryNode, null);
         }
 
-        
         Debug.Log($"[MILITARY] A {militaryNode.UnitAction}");
         return militaryNode;
 
@@ -170,26 +185,36 @@ using static Util;
         {
             const uint CHANCE_TO_HIT = 10U;
             const uint CHANCE_TO_DODGE = 10U;
+
+            MilitaryNode enemyMilitaryNode = GetMilitaryNode(enemyEntity);
+
             if (RandomDice(CHANCE_TO_HIT) == 0U)
             {
-                MilitaryNode enemy = GetMilitaryNode(enemyEntity);
-                if (RandomDice(CHANCE_TO_DODGE) < enemy.HealthLeft)
+                if (RandomDice(CHANCE_TO_DODGE) < enemyMilitaryNode.HealthLeft)
                 {
                     const uint DAMAGE = 1;
-                    enemy.HealthLeft -= math.min(enemy.HealthLeft, DAMAGE);
-                    SetMilitaryNode(enemyEntity, enemy);
-                    EnemiesScripts[enemyEntity.Index].SetHealth(enemy.HealthLeft);
+                    enemyMilitaryNode.HealthLeft -= math.min(enemyMilitaryNode.HealthLeft, DAMAGE);
+                    SetMilitaryNode(enemyEntity, enemyMilitaryNode);
+                    EnemiesScripts[enemyEntity.Index].SetHealth(enemyMilitaryNode.HealthLeft);
 
-                    Debug.Log($"[MILITARY] {militaryNode} hit {enemy}. Health left: {enemy.HealthLeft}");
+                    Debug.Log($"[MILITARY] {militaryNode} hit {enemyMilitaryNode}. Health left: {enemyMilitaryNode.HealthLeft}");
                 }
             }
+
+            Bullets.Add(new Bullet
+            {
+                Transform = Instantiate(BulletPrefab, BulletList).transform,
+                To = enemyMilitaryNode.Position,
+                From = militaryNode.Position,
+                BulletSpeed = Const.BULLET_SPEED_UNITS_PER_TICK / math.length(enemyMilitaryNode.Position.Units - militaryNode.Position.Units),
+                Progress = 0.0F,
+            });
         }
 
-        
         static bool ReachedTarget(PositionUnit position, PositionUnit target) => math.all(position.Units == target.Units);
         static bool TargetInRange(PositionUnit position, PositionUnit target, RangeUnitsSquared range) => math.lengthsq(target.Units - position.Units) < range.DistanceSquared;
     }
-    
+
     // Support
     private void CreateUnit(MilitaryNodeType militaryNodeType, PositionUnit position, Team team)
     {
@@ -262,7 +287,7 @@ public enum UnitAction
 
 [Serializable] public struct MilitaryNode
 {
-    [FormerlySerializedAs("MilitaryUnitType")] [FormerlySerializedAs("UnitName")] public MilitaryNodeType MilitaryNodeType;
+    public MilitaryNodeType MilitaryNodeType;
 
     public PositionUnit Position;
     public uint HealthLeft;
@@ -270,21 +295,35 @@ public enum UnitAction
     public PositionUnit? TargetPosition;
     public Entity TargetUnit;
     public UnitAction UnitAction;
-    [FormerlySerializedAs("ShootingCooldown")] public CooldownTicks ShootingCooldownTicks;
+    public CooldownTicks ShootingCooldownTicks;
 
     [Serializable] public struct Stat
     {
         public uint Health;
 
-        [FormerlySerializedAs("BetweenShots")] public CooldownTicks TicksBetweenShots;
+        public CooldownTicks TicksBetweenShots;
         public RangeUnitsSquared RangeUnitsSquared;
         public ProjectileType ProjectileType;
     }
 
     [Serializable] public struct Definition
     {
-        [FormerlySerializedAs("MilitaryUnitType")] [FormerlySerializedAs("UnitName")] public MilitaryNodeType MilitaryNodeType;
+        public MilitaryNodeType MilitaryNodeType;
         public Sprite Image;
         public Stat UnitStats;
+    }
+}
+
+public struct Bullet
+{
+    public Transform Transform;
+    public PositionUnit From, To;
+    public float BulletSpeed;
+    public float Progress;
+
+    public void Tick()
+    {
+        Progress += BulletSpeed;
+        Transform.position = new PositionUnit(math.lerp(From.Units, To.Units, Progress)).WorldPosition;
     }
 }

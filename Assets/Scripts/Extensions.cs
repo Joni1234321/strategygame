@@ -7,7 +7,7 @@ public static class Extensions
     public static bool HasValue(this Entity entity) => entity != Entity.Null;
     public static void Reset(this ref Entity entity) => entity = Entity.Null;
 
-    public static void DestroyEither(this GameObject gameObject)
+    public static void UniversalDestroy(this GameObject gameObject)
     {
         if (Application.isEditor) UnityEngine.Object.DestroyImmediate(gameObject);
         else UnityEngine.Object.Destroy(gameObject);

@@ -60,8 +60,9 @@ public sealed class Game : MonoBehaviour
                 MilitaryNodeStats = new MilitaryNode.Stat
                 {
                     Health = 10U,
-                    RangeUnitsSquared = new Meter { Meters = 500U },
+                    RangeUnitsSquared = new Meters { MetersValue = 500U },
                     TicksBetweenShots = new PerSecond { TimesPerSecond = 5U },
+                    TicksBetweenReloads = new Seconds { SecondsValue = 5U },
                     ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 880U },
                     ProjectileType = ProjectileType.ProjectileDirect,
                     GunBehaviour = GunBehaviour.GunBurst,
@@ -75,8 +76,9 @@ public sealed class Game : MonoBehaviour
                 MilitaryNodeStats = new MilitaryNode.Stat
                 {
                     Health = 1U,
-                    RangeUnitsSquared = new Meter { Meters = 700U },
+                    RangeUnitsSquared = new Meters { MetersValue = 700U },
                     TicksBetweenShots = new PerMinute { TimesPerMinute = 2U },
+                    TicksBetweenReloads = new PerMinute { TimesPerMinute = 18U },
                     ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 70U },
                     ProjectileType = ProjectileType.ProjectileIndirect,
                     GunBehaviour = GunBehaviour.GunSingle,
@@ -122,7 +124,7 @@ public sealed class Game : MonoBehaviour
 
             SetMilitaryNode(militaryScript.Entity, newMilitaryNode);
 
-            militaryScript.SetCooldown((float)newMilitaryNode.ShootingCooldownTicks.Ticks / stat.TicksBetweenShots.Ticks);
+            militaryScript.SetCooldown(newMilitaryNode.GunWaitingState.ToColor(), (float)newMilitaryNode.GunCooldownTicks.Ticks / GetGunCooldown(newMilitaryNode.GunWaitingState, stat).Ticks);
             militaryScript.transform.position = newMilitaryNode.Position.WorldPosition;
         }
 
@@ -145,14 +147,14 @@ public sealed class Game : MonoBehaviour
     private MilitaryNode UpdateUnit(Entity militaryNodeEntity)
     {
         MilitaryNode militaryNode = GetMilitaryNode(militaryNodeEntity);
-        MilitaryNode.Stat stat = Defines[(int)militaryNode.MilitaryNodeType].MilitaryNodeStats;
+        MilitaryNode.Stat defines = Defines[(int)militaryNode.MilitaryNodeType].MilitaryNodeStats;
         Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} B {militaryNode.MilitaryNodeAction}");
 
         // AI
         switch (militaryNode.MilitaryNodeAction)
         {
             case MilitaryNodeAction.NodeAlert:
-                Entity enemy = GetNearbyUnit(Team.RedTeam, militaryNode.Position, stat.RangeUnitsSquared);
+                Entity enemy = GetNearbyUnit(Team.RedTeam, militaryNode.Position, defines.RangeUnitsSquared);
                 if (enemy.HasValue())
                 {
                     militaryNode.TargetUnit = enemy;
@@ -170,21 +172,39 @@ public sealed class Game : MonoBehaviour
 
                 break;
             case MilitaryNodeAction.NodeFighting:
-                if (!militaryNode.TargetUnit.HasValue() || !TargetInRange(militaryNode.Position, Enemies[militaryNode.TargetUnit.Index].Position, stat.RangeUnitsSquared))
+                if (!militaryNode.TargetUnit.HasValue() || !TargetInRange(militaryNode.Position, Enemies[militaryNode.TargetUnit.Index].Position, defines.RangeUnitsSquared))
                 {
                     militaryNode.TargetUnit.Reset();
                     militaryNode.MilitaryNodeAction = MilitaryNodeAction.NodeAlert;
                     break;
                 }
 
-                if (militaryNode.ShootingCooldownTicks.Status is CooldownTicks.CooldownStatus.CooldownWaiting)
+                if (militaryNode.GunCooldownTicks.Status is CooldownStatus.CooldownWaiting)
                 {
-                    militaryNode.ShootingCooldownTicks.Ticks--;
+                    militaryNode.GunCooldownTicks.Ticks--;
                 }
                 else
                 {
                     ShootAt(militaryNode.TargetUnit);
-                    militaryNode.ShootingCooldownTicks = stat.TicksBetweenShots;
+                    militaryNode.BurstAmmunitionRemaining.Ammo--;
+                    militaryNode.MagazineAmmunitionRemaining.Ammo--;
+                    if (militaryNode.MagazineAmmunitionRemaining.Ammo == 0)
+                    {
+                        militaryNode.GunWaitingState = GunWaitingState.GunWaitingForReload;
+                        militaryNode.BurstAmmunitionRemaining.Ammo = (uint)defines.GunBehaviour;
+                        militaryNode.MagazineAmmunitionRemaining = defines.MagazineAmmunition;
+                    }
+                    else if (militaryNode.BurstAmmunitionRemaining.Ammo == 0)
+                    {
+                        militaryNode.GunWaitingState = GunWaitingState.GunWaitingForBurst;
+                        militaryNode.BurstAmmunitionRemaining.Ammo = (uint)defines.GunBehaviour;
+                    }
+                    else
+                    {
+                        militaryNode.GunWaitingState = GunWaitingState.GunWaitingForShot;
+                    }
+
+                    militaryNode.GunCooldownTicks = GetGunCooldown(militaryNode.GunWaitingState, defines);
                 }
 
                 break;
@@ -229,7 +249,7 @@ public sealed class Game : MonoBehaviour
                 Transform = Instantiate(BulletPrefab, BulletList).transform,
                 To = enemyMilitaryNode.Position,
                 From = militaryNode.Position,
-                BulletVelocityWorldPerTick = stat.ProjectileVelocity.DistancePerTick / distance,
+                BulletVelocityWorldPerTick = defines.ProjectileVelocity.DistancePerTick / distance,
                 Progress = 0.0F,
             };
 
@@ -254,7 +274,8 @@ public sealed class Game : MonoBehaviour
         {
             MilitaryNodeType = militaryNodeType,
             Position = position,
-            ShootingCooldownTicks = { Ticks = 0U },
+            GunWaitingState = GunWaitingState.GunWaitingForShot,
+            GunCooldownTicks = { Ticks = 0U },
             HealthRemaining = stat.Health,
             TargetPosition = null,
             TargetUnit = Entity.Null,
@@ -291,6 +312,13 @@ public sealed class Game : MonoBehaviour
     private static Entity GetEntity(Team team, int index) => new() { Index = index, Version = (int)team };
     private static Team GetTeam(Entity entity) => (Team)entity.Version;
     private string GetMilitaryNodeName(Entity entity) => $"{GetTeam(entity)} | {GetTeamList(entity)[entity.Index].MilitaryNodeType}";
+    private CooldownTicks GetGunCooldown(GunWaitingState gunWaitingState, MilitaryNode.Stat stats) => gunWaitingState switch
+    {
+        GunWaitingState.GunWaitingForShot => stats.TicksBetweenShots,
+        GunWaitingState.GunWaitingForBurst => stats.TicksBetweenBursts,
+        GunWaitingState.GunWaitingForReload => stats.TicksBetweenReloads,
+        _ => throw new ArgumentOutOfRangeException(nameof(gunWaitingState), gunWaitingState, null)
+    };
 }
 
 public enum Team
@@ -310,7 +338,6 @@ public enum MilitaryNodeType
     UnitInfantry,
     UnitMortar
 }
-
 public enum MilitaryNodeAction
 {
     NodeAlert,
@@ -318,12 +345,17 @@ public enum MilitaryNodeAction
     NodeFighting,
     NodeMovingAndFighting,
 }
-
 public enum GunBehaviour
 {
     GunSingle = 1,
-    GunBurst = 5,
+    GunBurst = 3,
     GunAuto = short.MaxValue,
+}
+public enum GunWaitingState
+{
+    GunWaitingForShot,
+    GunWaitingForBurst,
+    GunWaitingForReload,
 }
 
 [Serializable] public struct MilitaryNode
@@ -336,9 +368,9 @@ public enum GunBehaviour
     public Position? TargetPosition;
     public Entity TargetUnit;
     public MilitaryNodeAction MilitaryNodeAction;
-    
-    
-    public CooldownTicks ShootingCooldownTicks;
+
+    public GunWaitingState GunWaitingState;
+    public CooldownTicks GunCooldownTicks;
     public Ammunition BurstAmmunitionRemaining;
     public Ammunition MagazineAmmunitionRemaining;
     public Magazines MagazinesRemaining;
@@ -348,12 +380,15 @@ public enum GunBehaviour
         public uint Health;
 
         public CooldownTicks TicksBetweenShots;
+        public CooldownTicks TicksBetweenReloads;
         public RangeUnitsSquared RangeUnitsSquared;
         public Velocity ProjectileVelocity;
         public ProjectileType ProjectileType;
         public GunBehaviour GunBehaviour;
         public Ammunition MagazineAmmunition;
         public Magazines Magazines;
+
+        public CooldownTicks TicksBetweenBursts => new() { Ticks = TicksBetweenShots.Ticks * 5U };
     }
 
     [Serializable] public struct Definition

@@ -489,6 +489,7 @@ MonoBehaviour:
   status: {fileID: 5955973119487323641}
   selected: {fileID: 6408687155760622764}
   cooldown: {fileID: 4778496525799623295}
+  cooldownRenderer: {fileID: 7319216146062903783}
   healthGroup: {fileID: 5884731314647991282}
 --- !u!61 &1781073290219064977
 BoxCollider2D:

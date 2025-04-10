@@ -31,4 +31,12 @@ public static class Extensions
         Team.RedTeam => Color.red,
         _ => throw new ArgumentOutOfRangeException(nameof(team), team, null)
     };
+    
+    public static Color ToColor(this GunWaitingState gunWaitingState) => gunWaitingState switch
+    {
+        GunWaitingState.GunWaitingForShot => GetColor(0.4F),
+        GunWaitingState.GunWaitingForBurst => GetColor(0.6F),
+        GunWaitingState.GunWaitingForReload => GetColor(0.8F),
+        _ => throw new ArgumentOutOfRangeException(nameof(gunWaitingState), gunWaitingState, null)
+    };
 }

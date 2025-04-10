@@ -8,11 +8,13 @@ using UnityEngine.Serialization;
 using static Util;
 
 [RequireComponent(typeof(PlayerController))]
+[RequireComponent(typeof(TickController))]
 [ExecuteAlways] public sealed class Game : MonoBehaviour
 {
     // Controllers
-    PlayerController playerController;
-
+    private PlayerController playerController;
+    private TickController tickController;
+    
     // Game State
     public List<MilitaryNode> Friendlies = new(), Enemies = new();
     public List<MilitaryScript> FriendliesScripts = new(), EnemiesScripts = new();
@@ -52,12 +54,13 @@ using static Util;
     private void OnEnable()
     {
         playerController = GetComponent<PlayerController>();
+        tickController = GetComponent<TickController>();
         Spawn();
     }
     private void Update()
     {
         UserInput();
-        Tick();
+        if (tickController.TestTick() is TickController.TickStatus.DoTick) Tick();
     }
 
     // Methods

@@ -13,6 +13,8 @@ public static class Const
     public const uint TICKS_PER_MINUTE = TICKS_PER_SECOND * 60U;
     public const uint METERS_PER_UNIT = 10U;
 
+    public const float SECONDS_PER_TICK = 1.0F / TICKS_PER_SECOND;
+
     public const float WORLD_COORD_Z = 0.0F;
 }
 

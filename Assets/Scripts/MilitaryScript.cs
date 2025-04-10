@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 public class MilitaryScript : MonoBehaviour
@@ -25,7 +26,7 @@ public class MilitaryScript : MonoBehaviour
     public void SetCooldown(float cooldownPercentage)
     {
         Vector3 localScale = cooldown.transform.localScale;
-        localScale.x = Unity.Mathematics.math.clamp(cooldownPercentage, 0.0F, 1.0F);
+        localScale.x = 1 - math.clamp(cooldownPercentage, 0.0F, 1.0F);
         cooldown.transform.localScale = localScale;
     }
     

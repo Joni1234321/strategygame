@@ -226,6 +226,7 @@ MonoBehaviour:
   icon: {fileID: 4737701638486729569}
   status: {fileID: 7247900833660497271}
   selected: {fileID: 5687525061457888025}
+  cooldown: {fileID: 0}
   healthGroup: {fileID: 2590814480775401943}
 --- !u!61 &5391889429129605769
 BoxCollider2D:
@@ -673,6 +674,7 @@ MonoBehaviour:
   icon: {fileID: 5416436508726684308}
   status: {fileID: 6299207265785986509}
   selected: {fileID: 3986408328326285372}
+  cooldown: {fileID: 0}
   healthGroup: {fileID: 6631219018118023432}
 --- !u!61 &3614752698571855739
 BoxCollider2D:
@@ -731,6 +733,7 @@ GameObject:
   - component: {fileID: 8989783900177418870}
   - component: {fileID: 1239485057698641731}
   - component: {fileID: 3041214046933402739}
+  - component: {fileID: 5392720397773138057}
   m_Layer: 0
   m_Name: Game
   m_TagString: Untagged
@@ -772,18 +775,18 @@ MonoBehaviour:
   - MilitaryNodeType: 0
     HealthLeft: 10
     UnitAction: 2
-    ShootingCooldown:
-      Ticks: 9
+    ShootingCooldownTicks:
+      Ticks: 14
   - MilitaryNodeType: 1
     HealthLeft: 1
     UnitAction: 2
-    ShootingCooldown:
-      Ticks: 473
+    ShootingCooldownTicks:
+      Ticks: 478
   Enemies:
   - MilitaryNodeType: 0
     HealthLeft: 10
     UnitAction: 0
-    ShootingCooldown:
+    ShootingCooldownTicks:
       Ticks: 0
   FriendliesScripts:
   - {fileID: 2410929372160694611}
@@ -823,6 +826,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   MainCamera: {fileID: 0}
+--- !u!114 &5392720397773138057
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1892163936238774023}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26a3a264e22847708eaa0bb3145d4e72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  <TimeSinceLastTick>k__BackingField: 0
 --- !u!1 &2147220528111916880
 GameObject:
   m_ObjectHideFlags: 0
@@ -3080,6 +3096,7 @@ MonoBehaviour:
   icon: {fileID: 8024683265873488767}
   status: {fileID: 6669856747181424884}
   selected: {fileID: 1552768011625304300}
+  cooldown: {fileID: 0}
   healthGroup: {fileID: 5654179484239506706}
 --- !u!61 &6846174286543638240
 BoxCollider2D:

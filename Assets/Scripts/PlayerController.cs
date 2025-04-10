@@ -1,4 +1,5 @@
 ﻿using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 [ExecuteAlways] public sealed class PlayerController : Singleton<PlayerController>
@@ -11,5 +12,11 @@ using UnityEngine;
         base.OnEnable();
         
         MainCamera = Camera.main;
+    }
+
+    public UnityPosition GetMousePosition()
+    {
+        Vector2 worldPosition = MainCamera.ScreenToWorldPoint(Input.mousePosition);
+        return new UnityPosition() { WorldPosition = new float2(worldPosition.x, worldPosition.y) };
     }
 }

@@ -12,7 +12,6 @@ public class MilitaryScript : MonoBehaviour
 
     public Entity Entity { get; set; }
 
-    public void SetUnitName(Team team, MilitaryNodeType militaryNodeType) => gameObject.name = $"{team} | {militaryNodeType}";
     public void SetStatusColor(Color color) => status.color = color;
     public void SetUnit(Sprite unitIcon, Color teamColor)
     {

@@ -66,11 +66,11 @@ using static Util;
     {
         if (Mouse.current.rightButton.wasPressedThisFrame && playerController.SelectedUnit.HasValue())
         {
-            Vector2 worldPos = playerController.MainCamera.ScreenToWorldPoint(Input.mousePosition);
+            UnityPosition unityPosition = playerController.GetMousePosition();
             MilitaryNode militaryNode = GetMilitaryNode(playerController.SelectedUnit);
-            militaryNode.TargetPosition = new(worldPos);
+            militaryNode.TargetPosition = new Position(unityPosition);
             SetMilitaryNode(playerController.SelectedUnit, militaryNode);
-            Debug.Log($"[USER] Moving to {worldPos}");
+            Debug.Log($"[USER] Moving to {unityPosition.WorldPosition}");
         }
     }
     [ContextMenu("Spawn map")] private void Spawn()
@@ -87,10 +87,10 @@ using static Util;
         BulletList.SetParent(transform);
         Bullets.Clear();
 
-        CreateUnit(MilitaryNodeType.UnitInfantry, new PositionUnit(new Vector2(0, 0)), Team.BlueTeam);
-        CreateUnit(MilitaryNodeType.UnitMortar, new PositionUnit(new Vector2(1, 1)), Team.BlueTeam);
+        CreateUnit(MilitaryNodeType.UnitInfantry, new Position(new UnityPosition(0, 0)), Team.BlueTeam);
+        CreateUnit(MilitaryNodeType.UnitMortar, new Position(new UnityPosition(1, 1)), Team.BlueTeam);
 
-        CreateUnit(MilitaryNodeType.UnitInfantry, new PositionUnit(new Vector2(2, 1)), Team.RedTeam);
+        CreateUnit(MilitaryNodeType.UnitInfantry, new Position(new UnityPosition(4, 3)), Team.RedTeam);
     }
     private void Tick()
     {
@@ -126,7 +126,7 @@ using static Util;
     {
         MilitaryNode militaryNode = GetMilitaryNode(militaryNodeEntity);
         MilitaryNode.Stat stat = Defines[(int)militaryNode.MilitaryNodeType].UnitStats;
-        Debug.Log($"[MILITARY] B {militaryNode.UnitAction}");
+        Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} B {militaryNode.UnitAction}");
 
         // AI
         switch (militaryNode.UnitAction)
@@ -173,12 +173,12 @@ using static Util;
                 throw new ArgumentOutOfRangeException(nameof(militaryNode), militaryNode, null);
         }
 
-        Debug.Log($"[MILITARY] A {militaryNode.UnitAction}");
+        Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} A {militaryNode.UnitAction}");
         return militaryNode;
 
-        Entity GetNearbyUnit(Team team, PositionUnit from, RangeUnitsSquared within)
+        Entity GetNearbyUnit(Team team, Position from, RangeUnitsSquared within)
         {
-            int index = GetTeam(team).FindIndex(unit => math.lengthsq(unit.Position.Units - from.Units) < within.DistanceSquared);
+            int index = GetTeamList(team).FindIndex(unit => math.lengthsq(unit.Position.GamePosition - from.GamePosition) < within.DistanceSquared);
             return index == -1 ? Entity.Null : GetEntity(team, index);
         }
         void ShootAt(Entity enemyEntity)
@@ -197,30 +197,36 @@ using static Util;
                     SetMilitaryNode(enemyEntity, enemyMilitaryNode);
                     EnemiesScripts[enemyEntity.Index].SetHealth(enemyMilitaryNode.HealthLeft);
 
-                    Debug.Log($"[MILITARY] {militaryNode} hit {enemyMilitaryNode}. Health left: {enemyMilitaryNode.HealthLeft}");
+                    Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} hit {GetMilitaryNodeName(enemyEntity)}. Health left: {enemyMilitaryNode.HealthLeft}");
                 }
             }
 
-            Bullets.Add(new Bullet
+            int2 diff = enemyMilitaryNode.Position.GamePosition - militaryNode.Position.GamePosition;
+            float distance = math.length(diff);
+            Bullet bullet = new()
             {
                 Transform = Instantiate(BulletPrefab, BulletList).transform,
                 To = enemyMilitaryNode.Position,
                 From = militaryNode.Position,
-                BulletSpeed = Const.BULLET_SPEED_UNITS_PER_TICK / math.length(enemyMilitaryNode.Position.Units - militaryNode.Position.Units),
+                BulletSpeed = Const.BULLET_SPEED_UNITS_PER_TICK / distance,
                 Progress = 0.0F,
-            });
+            };
+
+            float angle = math.acos(diff.x / distance) * (diff.y < 0 ? -1 : 1);
+            bullet.Transform.rotation = quaternion.Euler(0, 0, math.PIHALF + angle);
+            Bullets.Add(bullet);
         }
 
-        static bool ReachedTarget(PositionUnit position, PositionUnit target) => math.all(position.Units == target.Units);
-        static bool TargetInRange(PositionUnit position, PositionUnit target, RangeUnitsSquared range) => math.lengthsq(target.Units - position.Units) < range.DistanceSquared;
+        static bool ReachedTarget(Position position, Position target) => math.all(position.GamePosition == target.GamePosition);
+        static bool TargetInRange(Position position, Position target, RangeUnitsSquared range) => math.lengthsq(target.GamePosition - position.GamePosition) < range.DistanceSquared;
     }
 
     // Support
-    private void CreateUnit(MilitaryNodeType militaryNodeType, PositionUnit position, Team team)
+    private void CreateUnit(MilitaryNodeType militaryNodeType, Position position, Team team)
     {
         Debug.Log($"[GAME] {nameof(CreateUnit)} {militaryNodeType} {team}");
         MilitaryNode.Definition definition = Defines.Find(x => x.MilitaryNodeType == militaryNodeType);
-        List<MilitaryNode> units = GetTeam(team);
+        List<MilitaryNode> units = GetTeamList(team);
         units.Add(new MilitaryNode
         {
             MilitaryNodeType = militaryNodeType,
@@ -238,24 +244,27 @@ using static Util;
         militaryScript.SetHealth(definition.UnitStats.Health);
         militaryScript.SetStatusColor(UnitAction.UnitAlert.ToColor());
         militaryScript.Entity = GetEntity(team, units.Count - 1);
-        militaryScript.SetUnitName(team, militaryNodeType);
+        militaryScript.name = GetMilitaryNodeName(militaryScript.Entity);
         GetTeamScripts(team).Add(militaryScript);
     }
-    private List<MilitaryNode> GetTeam(Team team) => team switch
+    private List<MilitaryNode> GetTeamList(Team team) => team switch
     {
         Team.BlueTeam => Friendlies,
         Team.RedTeam => Enemies,
         _ => throw new ArgumentOutOfRangeException(nameof(team), team, null)
     };
+    private List<MilitaryNode> GetTeamList(Entity entity) => GetTeamList(GetTeam(entity));
     private List<MilitaryScript> GetTeamScripts(Team team) => team switch
     {
         Team.BlueTeam => FriendliesScripts,
         Team.RedTeam => EnemiesScripts,
         _ => throw new ArgumentOutOfRangeException(nameof(team), team, null)
     };
-    private MilitaryNode GetMilitaryNode(Entity entity) => GetTeam((Team)entity.Version)[entity.Index];
-    private void SetMilitaryNode(Entity entity, in MilitaryNode military) => GetTeam((Team)entity.Version)[entity.Index] = military;
+    private MilitaryNode GetMilitaryNode(Entity entity) => GetTeamList(entity)[entity.Index];
+    private void SetMilitaryNode(Entity entity, in MilitaryNode military) => GetTeamList(entity)[entity.Index] = military;
     private static Entity GetEntity(Team team, int index) => new() { Index = index, Version = (int)team };
+    private static Team GetTeam(Entity entity) => (Team)entity.Version;
+    private string GetMilitaryNodeName(Entity entity) => $"{GetTeam(entity)} | {GetTeamList(entity)[entity.Index].MilitaryNodeType}";
 }
 
 public enum Team
@@ -289,10 +298,10 @@ public enum UnitAction
 {
     public MilitaryNodeType MilitaryNodeType;
 
-    public PositionUnit Position;
+    public Position Position;
     public uint HealthLeft;
 
-    public PositionUnit? TargetPosition;
+    public Position? TargetPosition;
     public Entity TargetUnit;
     public UnitAction UnitAction;
     public CooldownTicks ShootingCooldownTicks;
@@ -317,13 +326,20 @@ public enum UnitAction
 public struct Bullet
 {
     public Transform Transform;
-    public PositionUnit From, To;
+    public Position From, To;
     public float BulletSpeed;
     public float Progress;
 
     public void Tick()
     {
-        Progress += BulletSpeed;
-        Transform.position = new PositionUnit(math.lerp(From.Units, To.Units, Progress)).WorldPosition;
+        float bulletSpeed = BulletSpeed;
+        Progress += bulletSpeed;
+        int2 fromUnits = From.GamePosition;
+        int2 double2 = To.GamePosition;
+        float progress = Progress;
+        float2 worldPosition = math.lerp(fromUnits, double2, progress);
+        Vector3 transformPosition = new Position(new int2(worldPosition)).WorldPosition;
+        
+        Transform.position = transformPosition;
     }
 }

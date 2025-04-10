@@ -9,12 +9,14 @@
     }
 
     [field: SerializeField] public float TimeSinceLastTick { get; private set; }
+    [field: SerializeField] public uint Ticks { get; private set; }
 
     public TickStatus TestTick()
     {
         if (TimeSinceLastTick >= Const.SECONDS_PER_TICK)
         {
             TimeSinceLastTick = 0.0F;
+            Ticks++;
             return TickStatus.DoTick;
         }
 

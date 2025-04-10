@@ -9,11 +9,12 @@ public static class Util
 
 public static class Const
 {
-    public const uint UNITS_PER_UNITY_UNIT = 10U;
+    public const uint METERS_PER_DISTANCE = 10U;
+    public const uint DISTANCES_PER_UNITY_UNIT = 10U;
+    public const uint METERS_PER_UNITY_UNIT = METERS_PER_DISTANCE * DISTANCES_PER_UNITY_UNIT;
     public const uint TICKS_PER_SECOND = 16U;
-    public const uint METERS_PER_UNIT = 10U;
 
-    public const float UNITY_UNITS_PER_UNIT = 1.0F / UNITS_PER_UNITY_UNIT;
+    public const float UNITY_UNITS_PER_DISTANCE = 1.0F / DISTANCES_PER_UNITY_UNIT;
     public const float WORLD_COORD_Z = 0.0F;
 
     public const uint TICKS_PER_MINUTE = TICKS_PER_SECOND * 60U;
@@ -21,7 +22,7 @@ public static class Const
 
     private const uint BULLET_SPEED_METER_REALISTIC = 400U;
     private const uint BULLET_SPEED_METER_LOW = 10U;
-    private const float BULLET_SPEED_UNITS_PER_SECOND = (float)BULLET_SPEED_METER_LOW / METERS_PER_UNIT;
+    private const float BULLET_SPEED_UNITS_PER_SECOND = (float)BULLET_SPEED_METER_LOW / METERS_PER_DISTANCE;
     public const float BULLET_SPEED_UNITS_PER_TICK = SECONDS_PER_TICK * BULLET_SPEED_UNITS_PER_SECOND;
 }
 
@@ -44,7 +45,7 @@ public struct Meter
 {
     public uint DistanceSquared;
 
-    public static implicit operator RangeUnitsSquared(Meter meters) => new() { DistanceSquared = math.square(meters.Meters / METERS_PER_UNIT) };
+    public static implicit operator RangeUnitsSquared(Meter meters) => new() { DistanceSquared = math.square(meters.Meters / METERS_PER_DISTANCE) };
 }
 
 [System.Serializable] public struct CooldownTicks
@@ -68,12 +69,21 @@ public struct MovementSpeedUnits
     public uint Units;
 }
 
-public struct PositionUnit
+public struct UnityPosition
 {
-    public int2 Units;
+    public float2 WorldPosition;
+    public UnityPosition(float2 worldPosition) => WorldPosition = worldPosition;
+    public UnityPosition(float x, float y) => WorldPosition = new float2(x, y);
+    
+    public static implicit operator Vector3(UnityPosition worldPosition) => new(worldPosition.WorldPosition.x, worldPosition.WorldPosition.y, WORLD_COORD_Z);
+}
+public struct Position
+{
+    public int2 GamePosition { get; private set; }
 
-    public PositionUnit(int x, int y) => Units = new int2(x, y);
-    public PositionUnit(Vector2 worldPosition) => Units = new int2((int)(worldPosition.x * UNITS_PER_UNITY_UNIT), (int)(worldPosition.y * UNITS_PER_UNITY_UNIT));
+    public Position(int2 gamePosition) => GamePosition = gamePosition;
+    public Position(int x, int y) => GamePosition = new int2(x, y);
+    public Position(UnityPosition worldPosition) => GamePosition = new int2(worldPosition.WorldPosition * DISTANCES_PER_UNITY_UNIT);
 
-    public Vector3 WorldPosition => new(Units.x * UNITY_UNITS_PER_UNIT, Units.y * UNITY_UNITS_PER_UNIT, WORLD_COORD_Z);
+    public UnityPosition WorldPosition => new(new float2(GamePosition) * UNITY_UNITS_PER_DISTANCE);
 }

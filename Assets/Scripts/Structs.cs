@@ -38,12 +38,12 @@ public struct Meter
     public static implicit operator RangeUnitsSquared(Meter meters) => new() { DistanceSquared = math.square(meters.Meters / METERS_PER_UNIT) };
 }
 
-[System.Serializable] public struct TickCooldown
+[System.Serializable] public struct CooldownTicks
 {
     public uint Ticks;
 
-    public static implicit operator TickCooldown(PerMinute perMinute) => new() { Ticks = TICKS_PER_MINUTE / perMinute.TimesPerMinute };
-    public static implicit operator TickCooldown(PerSecond perSecond) => new() { Ticks = TICKS_PER_SECOND / perSecond.TimesPerSecond };
+    public static implicit operator CooldownTicks(PerMinute perMinute) => new() { Ticks = TICKS_PER_MINUTE / perMinute.TimesPerMinute };
+    public static implicit operator CooldownTicks(PerSecond perSecond) => new() { Ticks = TICKS_PER_SECOND / perSecond.TimesPerSecond };
 
     public CooldownStatus Status => Ticks > 0U ? CooldownStatus.CooldownWaiting : CooldownStatus.CooldownFinished;
 

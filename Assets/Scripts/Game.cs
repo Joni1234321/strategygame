@@ -7,11 +7,12 @@ using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 using static Util;
 
+[RequireComponent(typeof(PlayerController))]
 [ExecuteAlways] public sealed class Game : MonoBehaviour
 {
     // Controllers
     PlayerController playerController;
-    
+
     // Game State
     public List<MilitaryNode> Friendlies = new(), Enemies = new();
     public List<MilitaryScript> FriendliesScripts = new(), EnemiesScripts = new();
@@ -65,7 +66,7 @@ using static Util;
         if (Mouse.current.rightButton.wasPressedThisFrame && playerController.SelectedUnit.HasValue())
         {
             Vector2 worldPos = playerController.MainCamera.ScreenToWorldPoint(Input.mousePosition);
-            MilitaryNode militaryNode = GetMilitaryUnit(playerController.SelectedUnit);
+            MilitaryNode militaryNode = GetMilitaryNode(playerController.SelectedUnit);
             militaryNode.TargetPosition = new(worldPos); 
             SetMilitaryNode(playerController.SelectedUnit, militaryNode);
             Debug.Log($"[USER] Moving to {worldPos}");
@@ -92,16 +93,19 @@ using static Util;
     {
         for (int i = 0; i < Friendlies.Count; i++)
         {
-            MilitaryNode militaryNode = Friendlies[i];
-            MilitaryScript obj = FriendliesScripts[i];
+            MilitaryScript militaryScript = FriendliesScripts[i];
+            MilitaryNode newMilitaryNode = UpdateUnit(militaryScript.Entity);
+            MilitaryNode.Stat stat = Defines[(int)newMilitaryNode.MilitaryNodeType].UnitStats;
 
-            SetMilitaryNode(obj.Entity, UpdateUnit(militaryNode));
+            SetMilitaryNode(militaryScript.Entity, newMilitaryNode);
 
-            obj.transform.position = militaryNode.Position.WorldPosition;
+            militaryScript.SetCooldown((float)newMilitaryNode.ShootingCooldownTicks.Ticks / stat.TicksBetweenShots.Ticks);
+            militaryScript.transform.position = newMilitaryNode.Position.WorldPosition;
         }
     }
-    private MilitaryNode UpdateUnit(MilitaryNode militaryNode)
+    private MilitaryNode UpdateUnit(Entity militaryNodeEntity)
     {
+        MilitaryNode militaryNode = GetMilitaryNode(militaryNodeEntity);
         MilitaryNode.Stat stat = Defines[(int)militaryNode.MilitaryNodeType].UnitStats;
         Debug.Log($"[MILITARY] B {militaryNode.UnitAction}");
 
@@ -133,14 +137,14 @@ using static Util;
                     break;
                 }
 
-                if (militaryNode.ShootingCooldown.Status is TickCooldown.CooldownStatus.CooldownWaiting)
+                if (militaryNode.ShootingCooldownTicks.Status is CooldownTicks.CooldownStatus.CooldownWaiting)
                 {
-                    militaryNode.ShootingCooldown.Ticks--;
+                    militaryNode.ShootingCooldownTicks.Ticks--;
                 }
                 else
                 {
                     ShootAt(militaryNode.TargetUnit);
-                    militaryNode.ShootingCooldown = stat.TicksBetweenShots;
+                    militaryNode.ShootingCooldownTicks = stat.TicksBetweenShots;
                 }
 
                 break;
@@ -165,7 +169,7 @@ using static Util;
             const uint CHANCE_TO_DODGE = 10U;
             if (RandomDice(CHANCE_TO_HIT) == 0U)
             {
-                MilitaryNode enemy = GetMilitaryUnit(enemyEntity);
+                MilitaryNode enemy = GetMilitaryNode(enemyEntity);
                 if (RandomDice(CHANCE_TO_DODGE) < enemy.HealthLeft)
                 {
                     const uint DAMAGE = 1;
@@ -192,7 +196,7 @@ using static Util;
         units.Add(new MilitaryNode
         {
             MilitaryNodeType = militaryNodeType,
-            ShootingCooldown = { Ticks = 0U },
+            ShootingCooldownTicks = { Ticks = 0U },
             HealthLeft = definition.UnitStats.Health,
             TargetPosition = null,
             TargetUnit = Entity.Null,
@@ -221,7 +225,7 @@ using static Util;
         Team.RedTeam => EnemiesScripts,
         _ => throw new ArgumentOutOfRangeException(nameof(team), team, null)
     };
-    private MilitaryNode GetMilitaryUnit(Entity entity) => GetTeam((Team)entity.Version)[entity.Index];
+    private MilitaryNode GetMilitaryNode(Entity entity) => GetTeam((Team)entity.Version)[entity.Index];
     private void SetMilitaryNode(Entity entity, in MilitaryNode military) => GetTeam((Team)entity.Version)[entity.Index] = military;
     private static Entity GetEntity(Team team, int index) => new() { Index = index, Version = (int)team };
 }
@@ -263,13 +267,13 @@ public enum UnitAction
     public PositionUnit? TargetPosition;
     public Entity TargetUnit;
     public UnitAction UnitAction;
-    public TickCooldown ShootingCooldown;
+    [FormerlySerializedAs("ShootingCooldown")] public CooldownTicks ShootingCooldownTicks;
 
     [Serializable] public struct Stat
     {
         public uint Health;
 
-        public TickCooldown TicksBetweenShots;
+        [FormerlySerializedAs("BetweenShots")] public CooldownTicks TicksBetweenShots;
         public RangeUnitsSquared RangeUnitsSquared;
         public ProjectileType ProjectileType;
     }

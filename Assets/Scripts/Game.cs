@@ -57,31 +57,37 @@ public sealed class Game : MonoBehaviour
             new()
             {
                 MilitaryNodeType = MilitaryNodeType.UnitInfantry,
-                UnitStats = new MilitaryNode.Stat
+                MilitaryNodeStats = new MilitaryNode.Stat
                 {
                     Health = 10U,
                     RangeUnitsSquared = new Meter { Meters = 500U },
                     TicksBetweenShots = new PerSecond { TimesPerSecond = 5U },
                     ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 880U },
                     ProjectileType = ProjectileType.ProjectileDirect,
+                    GunBehaviour = GunBehaviour.GunBurst,
+                    MagazineAmmunition = new Ammunition { Ammo = 30U },
+                    Magazines = new Magazines { Mags = 20U },
                 }
             },
             new()
             {
                 MilitaryNodeType = MilitaryNodeType.UnitMortar,
-                UnitStats = new MilitaryNode.Stat
+                MilitaryNodeStats = new MilitaryNode.Stat
                 {
                     Health = 1U,
                     RangeUnitsSquared = new Meter { Meters = 700U },
                     TicksBetweenShots = new PerMinute { TimesPerMinute = 2U },
                     ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 70U },
                     ProjectileType = ProjectileType.ProjectileIndirect,
+                    GunBehaviour = GunBehaviour.GunSingle,
+                    MagazineAmmunition = new Ammunition { Ammo = 1U },
+                    Magazines = new Magazines { Mags = 20U },
                 }
             },
         };
     }
-    [ContextMenu("Spawn map")]
-    private void Spawn()
+    [ContextMenu("Reset State")]
+    private void Reset()
     {
         Debug.Log($"[GAME] {nameof(Spawn)}");
         Friendlies.Clear();
@@ -91,9 +97,15 @@ public sealed class Game : MonoBehaviour
         FriendliesScripts.Clear();
         EnemiesScripts.Clear();
 
+        Bullets.Clear();
+    }
+    [ContextMenu("Spawn State")]
+    private void Spawn()
+    {
+        Reset();
+
         BulletList = new GameObject("bullet list").transform;
         BulletList.SetParent(transform);
-        Bullets.Clear();
 
         CreateUnit(MilitaryNodeType.UnitInfantry, new Position(new UnityPosition(0, 0)), Team.BlueTeam);
         CreateUnit(MilitaryNodeType.UnitMortar, new Position(new UnityPosition(0, 3)), Team.BlueTeam);
@@ -106,7 +118,7 @@ public sealed class Game : MonoBehaviour
         {
             MilitaryScript militaryScript = FriendliesScripts[i];
             MilitaryNode newMilitaryNode = UpdateUnit(militaryScript.Entity);
-            MilitaryNode.Stat stat = Defines[(int)newMilitaryNode.MilitaryNodeType].UnitStats;
+            MilitaryNode.Stat stat = Defines[(int)newMilitaryNode.MilitaryNodeType].MilitaryNodeStats;
 
             SetMilitaryNode(militaryScript.Entity, newMilitaryNode);
 
@@ -133,35 +145,35 @@ public sealed class Game : MonoBehaviour
     private MilitaryNode UpdateUnit(Entity militaryNodeEntity)
     {
         MilitaryNode militaryNode = GetMilitaryNode(militaryNodeEntity);
-        MilitaryNode.Stat stat = Defines[(int)militaryNode.MilitaryNodeType].UnitStats;
-        Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} B {militaryNode.UnitAction}");
+        MilitaryNode.Stat stat = Defines[(int)militaryNode.MilitaryNodeType].MilitaryNodeStats;
+        Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} B {militaryNode.MilitaryNodeAction}");
 
         // AI
-        switch (militaryNode.UnitAction)
+        switch (militaryNode.MilitaryNodeAction)
         {
-            case UnitAction.UnitAlert:
+            case MilitaryNodeAction.NodeAlert:
                 Entity enemy = GetNearbyUnit(Team.RedTeam, militaryNode.Position, stat.RangeUnitsSquared);
                 if (enemy.HasValue())
                 {
                     militaryNode.TargetUnit = enemy;
-                    militaryNode.UnitAction = UnitAction.UnitFighting;
+                    militaryNode.MilitaryNodeAction = MilitaryNodeAction.NodeFighting;
                 }
                 else if (militaryNode.TargetPosition.HasValue)
                 {
-                    militaryNode.UnitAction = UnitAction.UnitMoving;
+                    militaryNode.MilitaryNodeAction = MilitaryNodeAction.NodeMoving;
                 }
 
                 break;
-            case UnitAction.UnitMoving:
+            case MilitaryNodeAction.NodeMoving:
                 if (militaryNode.TargetPosition == null || ReachedTarget(militaryNode.Position, militaryNode.TargetPosition.Value))
-                    militaryNode.UnitAction = UnitAction.UnitAlert;
+                    militaryNode.MilitaryNodeAction = MilitaryNodeAction.NodeAlert;
 
                 break;
-            case UnitAction.UnitFighting:
+            case MilitaryNodeAction.NodeFighting:
                 if (!militaryNode.TargetUnit.HasValue() || !TargetInRange(militaryNode.Position, Enemies[militaryNode.TargetUnit.Index].Position, stat.RangeUnitsSquared))
                 {
                     militaryNode.TargetUnit.Reset();
-                    militaryNode.UnitAction = UnitAction.UnitAlert;
+                    militaryNode.MilitaryNodeAction = MilitaryNodeAction.NodeAlert;
                     break;
                 }
 
@@ -176,13 +188,13 @@ public sealed class Game : MonoBehaviour
                 }
 
                 break;
-            case UnitAction.UnitMovingAndFighting:
+            case MilitaryNodeAction.NodeMovingAndFighting:
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(militaryNode), militaryNode, null);
         }
 
-        Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} A {militaryNode.UnitAction}");
+        Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} A {militaryNode.MilitaryNodeAction}");
         return militaryNode;
 
         Entity GetNearbyUnit(Team team, Position from, RangeUnitsSquared within)
@@ -199,14 +211,14 @@ public sealed class Game : MonoBehaviour
 
             if (RandomDice(CHANCE_TO_HIT) == 0U)
             {
-                if (RandomDice(CHANCE_TO_DODGE) < enemyMilitaryNode.HealthLeft)
+                if (RandomDice(CHANCE_TO_DODGE) < enemyMilitaryNode.HealthRemaining)
                 {
                     const uint DAMAGE = 1;
-                    enemyMilitaryNode.HealthLeft -= math.min(enemyMilitaryNode.HealthLeft, DAMAGE);
+                    enemyMilitaryNode.HealthRemaining -= math.min(enemyMilitaryNode.HealthRemaining, DAMAGE);
                     SetMilitaryNode(enemyEntity, enemyMilitaryNode);
-                    EnemiesScripts[enemyEntity.Index].SetHealth(enemyMilitaryNode.HealthLeft);
+                    EnemiesScripts[enemyEntity.Index].SetHealth(enemyMilitaryNode.HealthRemaining);
 
-                    Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} hit {GetMilitaryNodeName(enemyEntity)}. Health left: {enemyMilitaryNode.HealthLeft}");
+                    Debug.Log($"[MILITARY] {GetMilitaryNodeName(militaryNodeEntity)} hit {GetMilitaryNodeName(enemyEntity)}. Health left: {enemyMilitaryNode.HealthRemaining}");
                 }
             }
 
@@ -235,25 +247,28 @@ public sealed class Game : MonoBehaviour
     private void CreateUnit(MilitaryNodeType militaryNodeType, Position position, Team team)
     {
         Debug.Log($"[GAME] {nameof(CreateUnit)} {militaryNodeType} {team}");
-        MilitaryNode.Definition definition = Defines.Find(x => x.MilitaryNodeType == militaryNodeType);
-        MilitaryNode.ImageDefinition imageDefinition = ImageDefinitions.Find(x => x.MilitaryNodeType == militaryNodeType);
+        MilitaryNode.Stat stat = Defines.Find(x => x.MilitaryNodeType == militaryNodeType).MilitaryNodeStats;
+        Sprite image = ImageDefinitions.Find(x => x.MilitaryNodeType == militaryNodeType).Image;
         List<MilitaryNode> units = GetTeamList(team);
         units.Add(new MilitaryNode
         {
             MilitaryNodeType = militaryNodeType,
+            Position = position,
             ShootingCooldownTicks = { Ticks = 0U },
-            HealthLeft = definition.UnitStats.Health,
+            HealthRemaining = stat.Health,
             TargetPosition = null,
             TargetUnit = Entity.Null,
-            UnitAction = UnitAction.UnitAlert,
-            Position = position,
+            MilitaryNodeAction = MilitaryNodeAction.NodeAlert,
+            BurstAmmunitionRemaining = new Ammunition { Ammo = (uint)stat.GunBehaviour },
+            MagazineAmmunitionRemaining = stat.MagazineAmmunition,
+            MagazinesRemaining = stat.Magazines
         });
 
         GameObject go = Instantiate(UnitPrefab, position.WorldPosition, Quaternion.identity, transform);
         MilitaryScript militaryScript = go.GetComponent<MilitaryScript>();
-        militaryScript.SetUnit(imageDefinition.Image, team.ToColor());
-        militaryScript.SetHealth(definition.UnitStats.Health);
-        militaryScript.SetStatusColor(UnitAction.UnitAlert.ToColor());
+        militaryScript.SetUnit(image, team.ToColor());
+        militaryScript.SetHealth(stat.Health);
+        militaryScript.SetStatusColor(MilitaryNodeAction.NodeAlert.ToColor());
         militaryScript.Entity = GetEntity(team, units.Count - 1);
         militaryScript.name = GetMilitaryNodeName(militaryScript.Entity);
         GetTeamScripts(team).Add(militaryScript);
@@ -296,26 +311,37 @@ public enum MilitaryNodeType
     UnitMortar
 }
 
-public enum UnitAction
+public enum MilitaryNodeAction
 {
-    UnitAlert,
-    UnitMoving,
-    UnitFighting,
-    UnitMovingAndFighting,
+    NodeAlert,
+    NodeMoving,
+    NodeFighting,
+    NodeMovingAndFighting,
 }
 
+public enum GunBehaviour
+{
+    GunSingle = 1,
+    GunBurst = 5,
+    GunAuto = short.MaxValue,
+}
 
 [Serializable] public struct MilitaryNode
 {
     public MilitaryNodeType MilitaryNodeType;
 
     public Position Position;
-    public uint HealthLeft;
+    public uint HealthRemaining;
 
     public Position? TargetPosition;
     public Entity TargetUnit;
-    public UnitAction UnitAction;
+    public MilitaryNodeAction MilitaryNodeAction;
+    
+    
     public CooldownTicks ShootingCooldownTicks;
+    public Ammunition BurstAmmunitionRemaining;
+    public Ammunition MagazineAmmunitionRemaining;
+    public Magazines MagazinesRemaining;
 
     [Serializable] public struct Stat
     {
@@ -325,12 +351,15 @@ public enum UnitAction
         public RangeUnitsSquared RangeUnitsSquared;
         public Velocity ProjectileVelocity;
         public ProjectileType ProjectileType;
+        public GunBehaviour GunBehaviour;
+        public Ammunition MagazineAmmunition;
+        public Magazines Magazines;
     }
 
     [Serializable] public struct Definition
     {
         public MilitaryNodeType MilitaryNodeType;
-        public Stat UnitStats;
+        public Stat MilitaryNodeStats;
     }
 
     [Serializable] public struct ImageDefinition

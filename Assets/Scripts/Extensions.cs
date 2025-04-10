@@ -16,13 +16,13 @@ public static class Extensions
     private const float SATURATION = 1.0F;
     private const float VALUE = 0.4f;
     private static Color GetColor(float hue) => Color.HSVToRGB(hue, SATURATION, VALUE);
-    public static Color ToColor(this UnitAction unitAction) => unitAction switch
+    public static Color ToColor(this MilitaryNodeAction militaryNodeAction) => militaryNodeAction switch
     {
-        UnitAction.UnitAlert => GetColor(0.4F),
-        UnitAction.UnitMoving => GetColor(0.6F),
-        UnitAction.UnitFighting => GetColor(0.8F),
-        UnitAction.UnitMovingAndFighting => GetColor(1.0F),
-        _ => throw new ArgumentOutOfRangeException(nameof(unitAction), unitAction, null)
+        MilitaryNodeAction.NodeAlert => GetColor(0.4F),
+        MilitaryNodeAction.NodeMoving => GetColor(0.6F),
+        MilitaryNodeAction.NodeFighting => GetColor(0.8F),
+        MilitaryNodeAction.NodeMovingAndFighting => GetColor(1.0F),
+        _ => throw new ArgumentOutOfRangeException(nameof(militaryNodeAction), militaryNodeAction, null)
     };
 
     public static Color ToColor(this Team team) => team switch

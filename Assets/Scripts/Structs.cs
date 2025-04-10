@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using Unity.Mathematics;
 using static Const;
@@ -48,7 +49,16 @@ public struct Meter
     public uint Meters;
 }
 
-[System.Serializable] public struct RangeUnitsSquared
+[Serializable] public struct Ammunition
+{
+    public uint Ammo;
+}
+[Serializable] public struct Magazines
+{
+    public uint Mags;
+}
+
+[Serializable] public struct RangeUnitsSquared
 {
     public uint DistanceSquared;
 

@@ -6,17 +6,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using static Util;
 
-[RequireComponent(typeof(PlayerController))] [RequireComponent(typeof(TickController))] [ExecuteAlways] public sealed class Game : MonoBehaviour
+[RequireComponent(typeof(PlayerController))] [RequireComponent(typeof(TickController))] [ExecuteAlways]
+public sealed class Game : MonoBehaviour
 {
-    // Controllers
-    private PlayerController playerController;
-    private TickController tickController;
-
-    // Game State
-    public List<MilitaryNode> Friendlies = new(), Enemies = new();
-    public List<MilitaryScript> FriendliesScripts = new(), EnemiesScripts = new();
-    public List<Bullet> Bullets = new();
-
     // Game Defines
     public Transform BulletList;
     public GameObject UnitPrefab, BulletPrefab;
@@ -29,8 +21,9 @@ using static Util;
             UnitStats = new MilitaryNode.Stat
             {
                 Health = 10U,
-                RangeUnitsSquared = new Meter { Meters = 450U },
-                TicksBetweenShots = new PerSecond { TimesPerSecond = 1U },
+                RangeUnitsSquared = new Meter { Meters = 500U },
+                TicksBetweenShots = new PerSecond { TimesPerSecond = 5U },
+                ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 880U },
                 ProjectileType = ProjectileType.ProjectileDirect,
             }
         },
@@ -43,10 +36,20 @@ using static Util;
                 Health = 1U,
                 RangeUnitsSquared = new Meter { Meters = 700U },
                 TicksBetweenShots = new PerMinute { TimesPerMinute = 2U },
+                ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 70U },
                 ProjectileType = ProjectileType.ProjectileIndirect,
             }
         },
     };
+
+    // Controllers
+    private PlayerController playerController;
+    private TickController tickController;
+
+    // Game State
+    public List<MilitaryNode> Friendlies = new(), Enemies = new();
+    public List<MilitaryScript> FriendliesScripts = new(), EnemiesScripts = new();
+    public List<Bullet> Bullets = new();
 
     // Base
     private void OnEnable()
@@ -73,7 +76,8 @@ using static Util;
             Debug.Log($"[USER] Moving to {unityPosition.WorldPosition}");
         }
     }
-    [ContextMenu("Spawn map")] private void Spawn()
+    [ContextMenu("Spawn map")]
+    private void Spawn()
     {
         Debug.Log($"[GAME] {nameof(Spawn)}");
         Friendlies.Clear();
@@ -145,7 +149,8 @@ using static Util;
 
                 break;
             case UnitAction.UnitMoving:
-                if (militaryNode.TargetPosition == null || ReachedTarget(militaryNode.Position, militaryNode.TargetPosition.Value)) militaryNode.UnitAction = UnitAction.UnitAlert;
+                if (militaryNode.TargetPosition == null || ReachedTarget(militaryNode.Position, militaryNode.TargetPosition.Value))
+                    militaryNode.UnitAction = UnitAction.UnitAlert;
 
                 break;
             case UnitAction.UnitFighting:
@@ -208,7 +213,7 @@ using static Util;
                 Transform = Instantiate(BulletPrefab, BulletList).transform,
                 To = enemyMilitaryNode.Position,
                 From = militaryNode.Position,
-                BulletSpeed = Const.BULLET_SPEED_UNITS_PER_TICK / distance,
+                BulletSpeed = Const.BULLET_SPEED_DISTANCE_PER_TICK / distance,
                 Progress = 0.0F,
             };
 
@@ -218,7 +223,8 @@ using static Util;
         }
 
         static bool ReachedTarget(Position position, Position target) => math.all(position.GamePosition == target.GamePosition);
-        static bool TargetInRange(Position position, Position target, RangeUnitsSquared range) => math.lengthsq(target.GamePosition - position.GamePosition) < range.DistanceSquared;
+        static bool TargetInRange(Position position, Position target, RangeUnitsSquared range) =>
+            math.lengthsq(target.GamePosition - position.GamePosition) < range.DistanceSquared;
     }
 
     // Support
@@ -312,6 +318,7 @@ public enum UnitAction
 
         public CooldownTicks TicksBetweenShots;
         public RangeUnitsSquared RangeUnitsSquared;
+        public Velocity ProjectileVelocity;
         public ProjectileType ProjectileType;
     }
 
@@ -323,7 +330,7 @@ public enum UnitAction
     }
 }
 
-public struct Bullet
+[Serializable] public struct Bullet
 {
     public Transform Transform;
     public Position From, To;
@@ -339,7 +346,7 @@ public struct Bullet
         float progress = Progress;
         float2 worldPosition = math.lerp(fromUnits, double2, progress);
         Vector3 transformPosition = new Position(new int2(worldPosition)).WorldPosition;
-        
+
         Transform.position = transformPosition;
     }
 }

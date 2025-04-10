@@ -9,28 +9,23 @@ public static class Util
 
 public static class Const
 {
+    public const float WORLD_COORD_Z = 0.0F;
 
-    public const bool FAST = true;
+    private const bool FAST = true;
     public const uint TICKS_PER_SECOND = FAST ? 64U : 16U;
 
-    public const uint METERS_PER_DISTANCE = 10U;
+    public const uint METERS_PER_DISTANCE = 1U;
     public const uint DISTANCES_PER_UNITY_UNIT = 10U;
     public const uint METERS_PER_UNITY_UNIT = METERS_PER_DISTANCE * DISTANCES_PER_UNITY_UNIT;
 
     public const float UNITY_UNITS_PER_DISTANCE = 1.0F / DISTANCES_PER_UNITY_UNIT;
     public const float DISTANCES_PER_METER = 1.0F / METERS_PER_DISTANCE;
 
-    public const float WORLD_COORD_Z = 0.0F;
 
     public const uint TICKS_PER_MINUTE = TICKS_PER_SECOND * 60U;
     public const float SECONDS_PER_TICK = 1.0F / TICKS_PER_SECOND;
 
     public const float METERS_PER_SECOND_TO_DISTANCES_PER_TICK = DISTANCES_PER_METER / TICKS_PER_SECOND;
-
-    private const uint BULLET_SPEED_METER_REALISTIC = 400U;
-    private const uint BULLET_SPEED_METER_LOW = 10U;
-    private const float BULLET_SPEED_UNITS_PER_SECOND = (float)BULLET_SPEED_METER_REALISTIC / METERS_PER_DISTANCE;
-    public const float BULLET_SPEED_DISTANCE_PER_TICK = SECONDS_PER_TICK * BULLET_SPEED_UNITS_PER_SECOND;
 }
 
 public struct PerMinute
@@ -78,11 +73,11 @@ public struct Meter
 
 [System.Serializable] public struct Velocity
 {
-    public uint DistancePerTick;
+    public float DistancePerTick;
     
-    public static implicit operator Velocity(MetersPerSecond metersPerSecond) => new() { DistancePerTick = (uint)(metersPerSecond.MetersPerSecondValue * METERS_PER_SECOND_TO_DISTANCES_PER_TICK)};
+    public static implicit operator Velocity(MetersPerSecond metersPerSecond) => new() { DistancePerTick = metersPerSecond.MetersPerSecondValue * METERS_PER_SECOND_TO_DISTANCES_PER_TICK };
 }
-
+ 
 public struct UnityPosition
 {
     public float2 WorldPosition;

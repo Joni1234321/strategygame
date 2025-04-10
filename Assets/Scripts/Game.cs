@@ -12,35 +12,8 @@ public sealed class Game : MonoBehaviour
     // Game Defines
     public Transform BulletList;
     public GameObject UnitPrefab, BulletPrefab;
-    public List<MilitaryNode.Definition> Defines = new(Enum.GetNames(typeof(MilitaryNodeType)).Length)
-    {
-        new MilitaryNode.Definition
-        {
-            MilitaryNodeType = MilitaryNodeType.UnitInfantry,
-            Image = null,
-            UnitStats = new MilitaryNode.Stat
-            {
-                Health = 10U,
-                RangeUnitsSquared = new Meter { Meters = 500U },
-                TicksBetweenShots = new PerSecond { TimesPerSecond = 5U },
-                ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 880U },
-                ProjectileType = ProjectileType.ProjectileDirect,
-            }
-        },
-        new MilitaryNode.Definition
-        {
-            MilitaryNodeType = MilitaryNodeType.UnitMortar,
-            Image = null,
-            UnitStats = new MilitaryNode.Stat
-            {
-                Health = 1U,
-                RangeUnitsSquared = new Meter { Meters = 700U },
-                TicksBetweenShots = new PerMinute { TimesPerMinute = 2U },
-                ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 70U },
-                ProjectileType = ProjectileType.ProjectileIndirect,
-            }
-        },
-    };
+    public List<MilitaryNode.Definition> Defines;
+    public List<MilitaryNode.ImageDefinition> ImageDefinitions;
 
     // Controllers
     private PlayerController playerController;
@@ -76,6 +49,37 @@ public sealed class Game : MonoBehaviour
             Debug.Log($"[USER] Moving to {unityPosition.WorldPosition}");
         }
     }
+    [ContextMenu("Reset Defines")]
+    private void ResetDefines()
+    {
+        Defines = new List<MilitaryNode.Definition>(Enum.GetNames(typeof(MilitaryNodeType)).Length)
+        {
+            new()
+            {
+                MilitaryNodeType = MilitaryNodeType.UnitInfantry,
+                UnitStats = new MilitaryNode.Stat
+                {
+                    Health = 10U,
+                    RangeUnitsSquared = new Meter { Meters = 500U },
+                    TicksBetweenShots = new PerSecond { TimesPerSecond = 5U },
+                    ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 880U },
+                    ProjectileType = ProjectileType.ProjectileDirect,
+                }
+            },
+            new()
+            {
+                MilitaryNodeType = MilitaryNodeType.UnitMortar,
+                UnitStats = new MilitaryNode.Stat
+                {
+                    Health = 1U,
+                    RangeUnitsSquared = new Meter { Meters = 700U },
+                    TicksBetweenShots = new PerMinute { TimesPerMinute = 2U },
+                    ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 70U },
+                    ProjectileType = ProjectileType.ProjectileIndirect,
+                }
+            },
+        };
+    }
     [ContextMenu("Spawn map")]
     private void Spawn()
     {
@@ -92,7 +96,7 @@ public sealed class Game : MonoBehaviour
         Bullets.Clear();
 
         CreateUnit(MilitaryNodeType.UnitInfantry, new Position(new UnityPosition(0, 0)), Team.BlueTeam);
-        CreateUnit(MilitaryNodeType.UnitMortar, new Position(new UnityPosition(1, 1)), Team.BlueTeam);
+        CreateUnit(MilitaryNodeType.UnitMortar, new Position(new UnityPosition(0, 3)), Team.BlueTeam);
 
         CreateUnit(MilitaryNodeType.UnitInfantry, new Position(new UnityPosition(4, 3)), Team.RedTeam);
     }
@@ -213,7 +217,7 @@ public sealed class Game : MonoBehaviour
                 Transform = Instantiate(BulletPrefab, BulletList).transform,
                 To = enemyMilitaryNode.Position,
                 From = militaryNode.Position,
-                BulletSpeed = Const.BULLET_SPEED_DISTANCE_PER_TICK / distance,
+                BulletVelocityWorldPerTick = stat.ProjectileVelocity.DistancePerTick / distance,
                 Progress = 0.0F,
             };
 
@@ -232,6 +236,7 @@ public sealed class Game : MonoBehaviour
     {
         Debug.Log($"[GAME] {nameof(CreateUnit)} {militaryNodeType} {team}");
         MilitaryNode.Definition definition = Defines.Find(x => x.MilitaryNodeType == militaryNodeType);
+        MilitaryNode.ImageDefinition imageDefinition = ImageDefinitions.Find(x => x.MilitaryNodeType == militaryNodeType);
         List<MilitaryNode> units = GetTeamList(team);
         units.Add(new MilitaryNode
         {
@@ -246,7 +251,7 @@ public sealed class Game : MonoBehaviour
 
         GameObject go = Instantiate(UnitPrefab, position.WorldPosition, Quaternion.identity, transform);
         MilitaryScript militaryScript = go.GetComponent<MilitaryScript>();
-        militaryScript.SetUnit(definition.Image, team.ToColor());
+        militaryScript.SetUnit(imageDefinition.Image, team.ToColor());
         militaryScript.SetHealth(definition.UnitStats.Health);
         militaryScript.SetStatusColor(UnitAction.UnitAlert.ToColor());
         militaryScript.Entity = GetEntity(team, units.Count - 1);
@@ -325,8 +330,13 @@ public enum UnitAction
     [Serializable] public struct Definition
     {
         public MilitaryNodeType MilitaryNodeType;
-        public Sprite Image;
         public Stat UnitStats;
+    }
+
+    [Serializable] public struct ImageDefinition
+    {
+        public MilitaryNodeType MilitaryNodeType;
+        public Sprite Image;
     }
 }
 
@@ -334,18 +344,14 @@ public enum UnitAction
 {
     public Transform Transform;
     public Position From, To;
-    public float BulletSpeed;
+    public float BulletVelocityWorldPerTick;
     public float Progress;
 
     public void Tick()
     {
-        float bulletSpeed = BulletSpeed;
-        Progress += bulletSpeed;
-        int2 fromUnits = From.GamePosition;
-        int2 double2 = To.GamePosition;
-        float progress = Progress;
-        float2 worldPosition = math.lerp(fromUnits, double2, progress);
-        Vector3 transformPosition = new Position(new int2(worldPosition)).WorldPosition;
+        Progress += BulletVelocityWorldPerTick;
+        int2 gamePosition = new(math.lerp(From.GamePosition, To.GamePosition, Progress));
+        Vector3 transformPosition = new Position(gamePosition).WorldPosition;
 
         Transform.position = transformPosition;
     }

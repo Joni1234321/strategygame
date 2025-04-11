@@ -22,14 +22,14 @@ public static class Extensions
         MilitaryNodeAction.NodeMoving => GetColor(0.6F),
         MilitaryNodeAction.NodeFighting => GetColor(0.8F),
         MilitaryNodeAction.NodeMovingAndFighting => GetColor(1.0F),
-        _ => throw new ArgumentOutOfRangeException(nameof(militaryNodeAction), militaryNodeAction, null)
+        _ => throw new ArgumentOutOfRangeException(nameof(militaryNodeAction), militaryNodeAction, null),
     };
 
     public static Color ToColor(this Team team) => team switch
     {
         Team.BlueTeam => Color.blue,
         Team.RedTeam => Color.red,
-        _ => throw new ArgumentOutOfRangeException(nameof(team), team, null)
+        _ => throw new ArgumentOutOfRangeException(nameof(team), team, null),
     };
     
     public static Color ToColor(this GunWaitingState gunWaitingState) => gunWaitingState switch
@@ -37,6 +37,6 @@ public static class Extensions
         GunWaitingState.GunWaitingForShot => GetColor(0.4F),
         GunWaitingState.GunWaitingForBurst => GetColor(0.6F),
         GunWaitingState.GunWaitingForReload => GetColor(0.8F),
-        _ => throw new ArgumentOutOfRangeException(nameof(gunWaitingState), gunWaitingState, null)
+        _ => throw new ArgumentOutOfRangeException(nameof(gunWaitingState), gunWaitingState, null),
     };
 }

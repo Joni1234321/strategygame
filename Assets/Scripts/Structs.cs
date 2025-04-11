@@ -75,7 +75,7 @@ public struct MilliSeconds
 public enum CooldownStatus
 {
     CooldownFinished,
-    CooldownWaiting
+    CooldownWaiting,
 }
 [Serializable] public struct CooldownTicks
 {
@@ -86,7 +86,7 @@ public enum CooldownStatus
     public static implicit operator CooldownTicks(Minutes mins) => new() { Ticks = TICKS_PER_SECOND * mins.mins * MINUTES_TO_SECONDS };
     public static implicit operator CooldownTicks(Seconds seconds) => new() { Ticks = TICKS_PER_SECOND * seconds.SecondsValue };
     public static implicit operator CooldownTicks(MilliSeconds ms) => new() { Ticks = TICKS_PER_SECOND * ms.ms / 1000U };
-    
+
     public CooldownStatus Status => Ticks > 0U ? CooldownStatus.CooldownWaiting : CooldownStatus.CooldownFinished;
 }
 [Serializable] public struct Velocity

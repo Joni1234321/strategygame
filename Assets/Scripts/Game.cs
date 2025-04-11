@@ -6,12 +6,13 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using static Util;
 
-[RequireComponent(typeof(PlayerController))] [RequireComponent(typeof(TickController))] [ExecuteAlways]
-public sealed class Game : MonoBehaviour
+[RequireComponent(typeof(PlayerController))] [RequireComponent(typeof(TickController))] [ExecuteAlways] public sealed class Game : MonoBehaviour
 {
     // Game Defines
     public Transform BulletList;
-    public GameObject UnitPrefab, BulletPrefab;
+    public GameObject UnitPrefab;
+    public GameObject BulletPrefab;
+    public GameObject ShellPrefab;
     public List<MilitaryNode.Definition> Defines;
     public List<MilitaryNode.ImageDefinition> ImageDefinitions;
 
@@ -49,8 +50,7 @@ public sealed class Game : MonoBehaviour
             Debug.Log($"[USER] Moving to {unityPosition.WorldPosition}");
         }
     }
-    [ContextMenu("Reset Defines")]
-    private void ResetDefines()
+    [ContextMenu("Reset Defines")] private void ResetDefines()
     {
         Defines = new List<MilitaryNode.Definition>(Enum.GetNames(typeof(MilitaryNodeType)).Length)
         {
@@ -64,11 +64,11 @@ public sealed class Game : MonoBehaviour
                     TicksBetweenShots = new PerSecond { TimesPerSecond = 5U },
                     TicksBetweenReloads = new Seconds { SecondsValue = 5U },
                     ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 880U },
-                    ProjectileType = ProjectileType.ProjectileDirect,
+                    ProjectileType = ProjectileType.ProjectileBullet,
                     GunBehaviour = GunBehaviour.GunBurst,
                     MagazineAmmunition = new Ammunition { Ammo = 30U },
                     Magazines = new Magazines { Mags = 20U },
-                }
+                },
             },
             new()
             {
@@ -80,16 +80,15 @@ public sealed class Game : MonoBehaviour
                     TicksBetweenShots = new PerMinute { TimesPerMinute = 2U },
                     TicksBetweenReloads = new PerMinute { TimesPerMinute = 18U },
                     ProjectileVelocity = new MetersPerSecond { MetersPerSecondValue = 70U },
-                    ProjectileType = ProjectileType.ProjectileIndirect,
+                    ProjectileType = ProjectileType.ProjectileShell,
                     GunBehaviour = GunBehaviour.GunSingle,
                     MagazineAmmunition = new Ammunition { Ammo = 1U },
                     Magazines = new Magazines { Mags = 20U },
-                }
+                },
             },
         };
     }
-    [ContextMenu("Reset State")]
-    private void Reset()
+    [ContextMenu("Reset State")] private void Reset()
     {
         Debug.Log($"[GAME] {nameof(Spawn)}");
         Friendlies.Clear();
@@ -101,8 +100,7 @@ public sealed class Game : MonoBehaviour
 
         Bullets.Clear();
     }
-    [ContextMenu("Spawn State")]
-    private void Spawn()
+    [ContextMenu("Spawn State")] private void Spawn()
     {
         Reset();
 
@@ -244,9 +242,15 @@ public sealed class Game : MonoBehaviour
 
             int2 diff = enemyMilitaryNode.Position.GamePosition - militaryNode.Position.GamePosition;
             float distance = math.length(diff);
+            GameObject bulletPrefab = defines.ProjectileType switch
+            {
+                ProjectileType.ProjectileBullet => BulletPrefab,
+                ProjectileType.ProjectileShell => ShellPrefab,
+                _ => throw new ArgumentOutOfRangeException(nameof(ProjectileType), defines.ProjectileType, null),
+            };
             Bullet bullet = new()
             {
-                Transform = Instantiate(BulletPrefab, BulletList).transform,
+                Transform = Instantiate(bulletPrefab, BulletList).transform,
                 To = enemyMilitaryNode.Position,
                 From = militaryNode.Position,
                 BulletVelocityWorldPerTick = defines.ProjectileVelocity.DistancePerTick / distance,
@@ -282,7 +286,7 @@ public sealed class Game : MonoBehaviour
             MilitaryNodeAction = MilitaryNodeAction.NodeAlert,
             BurstAmmunitionRemaining = new Ammunition { Ammo = (uint)stat.GunBehaviour },
             MagazineAmmunitionRemaining = stat.MagazineAmmunition,
-            MagazinesRemaining = stat.Magazines
+            MagazinesRemaining = stat.Magazines,
         });
 
         GameObject go = Instantiate(UnitPrefab, position.WorldPosition, Quaternion.identity, transform);
@@ -298,14 +302,14 @@ public sealed class Game : MonoBehaviour
     {
         Team.BlueTeam => Friendlies,
         Team.RedTeam => Enemies,
-        _ => throw new ArgumentOutOfRangeException(nameof(team), team, null)
+        _ => throw new ArgumentOutOfRangeException(nameof(team), team, null),
     };
     private List<MilitaryNode> GetTeamList(Entity entity) => GetTeamList(GetTeam(entity));
     private List<MilitaryScript> GetTeamScripts(Team team) => team switch
     {
         Team.BlueTeam => FriendliesScripts,
         Team.RedTeam => EnemiesScripts,
-        _ => throw new ArgumentOutOfRangeException(nameof(team), team, null)
+        _ => throw new ArgumentOutOfRangeException(nameof(team), team, null),
     };
     private MilitaryNode GetMilitaryNode(Entity entity) => GetTeamList(entity)[entity.Index];
     private void SetMilitaryNode(Entity entity, in MilitaryNode military) => GetTeamList(entity)[entity.Index] = military;
@@ -317,7 +321,7 @@ public sealed class Game : MonoBehaviour
         GunWaitingState.GunWaitingForShot => stats.TicksBetweenShots,
         GunWaitingState.GunWaitingForBurst => stats.TicksBetweenBursts,
         GunWaitingState.GunWaitingForReload => stats.TicksBetweenReloads,
-        _ => throw new ArgumentOutOfRangeException(nameof(gunWaitingState), gunWaitingState, null)
+        _ => throw new ArgumentOutOfRangeException(nameof(gunWaitingState), gunWaitingState, null),
     };
 }
 
@@ -329,14 +333,14 @@ public enum Team
 
 public enum ProjectileType
 {
-    ProjectileDirect,
-    ProjectileIndirect
+    ProjectileBullet,
+    ProjectileShell,
 }
 
 public enum MilitaryNodeType
 {
     UnitInfantry,
-    UnitMortar
+    UnitMortar,
 }
 public enum MilitaryNodeAction
 {
